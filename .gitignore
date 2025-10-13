@@ -1,0 +1,47 @@
+# Node.js dependencies
+node_modules/
+package-lock.json
+
+# Output files (can be regenerated)
+output/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS specific files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows specific files
+Thumbs.db
+ehthumbs.db
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+*.tmp
+
+# AWS SAM
+.aws-sam/
+samconfig.toml
+packaged.yaml
+
+# Lambda test artifacts
+response.json

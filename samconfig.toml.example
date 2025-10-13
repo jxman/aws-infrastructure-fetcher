@@ -1,0 +1,22 @@
+# SAM Configuration File
+# This file will be created during 'sam deploy --guided'
+# Copy this to samconfig.toml and customize as needed
+
+version = 0.1
+
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "aws-data-fetcher"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-xxxxxxx"
+s3_prefix = "aws-data-fetcher"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "S3BucketName=\"your-unique-bucket-name\" BatchSize=\"10\" PaginationDelay=\"40\""
+image_repositories = []
+
+[default.build]
+[default.build.parameters]
+cached = true
+parallel = true

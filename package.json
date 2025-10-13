@@ -1,0 +1,34 @@
+{
+  "name": "aws-ssm-data-fetcher",
+  "version": "1.5.1",
+  "description": "Node.js script to fetch AWS global infrastructure data from SSM Parameter Store with dynamic service name fetching",
+  "main": "fetch-aws-data.js",
+  "scripts": {
+    "start": "node fetch-aws-data.js",
+    "regions": "node fetch-aws-data.js --regions-only",
+    "services": "node fetch-aws-data.js --services-only",
+    "complete": "node fetch-aws-data.js --include-service-mapping",
+    "complete:fresh": "rm -f output/.cache-services-by-region.json && node fetch-aws-data.js --include-service-mapping",
+    "cache:clear": "rm -f output/.cache-services-by-region.json && echo '✅ Cache cleared'",
+    "clean": "rm -rf output/*.json && echo '✅ All output files removed'"
+  },
+  "keywords": [
+    "aws",
+    "ssm",
+    "regions",
+    "services",
+    "infrastructure"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-ssm": "^3.645.0",
+    "@aws-sdk/client-s3": "^3.645.0",
+    "@aws-sdk/client-sns": "^3.645.0",
+    "commander": "^11.1.0",
+    "chalk": "^4.1.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,234 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AWS SSM Data Fetcher - Lambda Deployment
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: S3 bucket for storing output data and cache (must be globally unique)
+    Default: aws-data-fetcher-output
+
+  ScheduleExpression:
+    Type: String
+    Description: Schedule for automatic updates (EventBridge cron/rate expression)
+    Default: cron(0 2 * * ? *)  # Daily at 2 AM UTC
+
+  BatchSize:
+    Type: Number
+    Description: Parallel region processing batch size (10=conservative, 12=balanced, 15=aggressive)
+    Default: 10
+    MinValue: 5
+    MaxValue: 20
+
+  PaginationDelay:
+    Type: Number
+    Description: Delay between SSM pagination requests in milliseconds
+    Default: 40
+    MinValue: 20
+    MaxValue: 100
+
+  NotificationEmail:
+    Type: String
+    Description: Email address for success and error notifications
+    Default: ''
+
+Conditions:
+  HasNotificationEmail: !Not [!Equals [!Ref NotificationEmail, '']]
+
+Resources:
+  # S3 Bucket for outputs and cache
+  OutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          # Delete old historical snapshots after 30 days
+          - Id: DeleteOldHistoryFiles
+            Prefix: aws-data/history/
+            Status: Enabled
+            ExpirationInDays: 30
+          # Keep current data and cache indefinitely
+          - Id: KeepCurrentData
+            Prefix: aws-data/
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 7
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: aws-data-fetcher
+        - Key: ManagedBy
+          Value: SAM
+
+  # SNS Topic for notifications
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: aws-data-fetcher-notifications
+      DisplayName: AWS Data Fetcher Notifications
+      Tags:
+        - Key: Project
+          Value: aws-data-fetcher
+        - Key: ManagedBy
+          Value: SAM
+
+  # SNS Email Subscription
+  NotificationSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasNotificationEmail
+    Properties:
+      Protocol: email
+      TopicArn: !Ref NotificationTopic
+      Endpoint: !Ref NotificationEmail
+
+  # Lambda Function
+  DataFetcherFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: aws-data-fetcher
+      CodeUri: ./
+      Handler: lambda/handler.handler
+      Runtime: nodejs20.x
+      Description: Fetches AWS infrastructure data from SSM (complete with service mapping)
+      Timeout: 180  # 3 minutes (77s runtime + buffer)
+      MemorySize: 512
+      Environment:
+        Variables:
+          # Storage configuration
+          STORAGE_TYPE: s3
+          S3_BUCKET_NAME: !Ref OutputBucket
+          S3_PREFIX: aws-data
+
+          # Performance tuning (from config.js)
+          BATCH_SIZE: !Ref BatchSize
+          PAGINATION_DELAY: !Ref PaginationDelay
+          CACHE_TTL: 86400000  # 24 hours in milliseconds
+
+          # Notifications
+          SNS_TOPIC_ARN: !Ref NotificationTopic
+
+          # Logging
+          LOG_LEVEL: info
+          NODE_ENV: production
+      Policies:
+        # SSM read-only access
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource:
+                - !Sub 'arn:aws:ssm:${AWS::Region}::parameter/aws/service/global-infrastructure/*'
+        # S3 access for data and cache
+        - S3CrudPolicy:
+            BucketName: !Ref OutputBucket
+        # SNS publish for notifications
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource:
+                - !Ref NotificationTopic
+      Events:
+        # Daily EventBridge schedule
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: !Ref ScheduleExpression
+            Description: Daily AWS data fetch
+            Enabled: true
+            Input: |
+              {
+                "includeServiceMapping": true,
+                "forceRefresh": false
+              }
+      Tags:
+        Project: aws-data-fetcher
+        ManagedBy: SAM
+
+  # CloudWatch Log Group (explicit creation for retention control)
+  FunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${DataFetcherFunction}'
+      RetentionInDays: 7
+
+  # CloudWatch Alarm - Error detection
+  ErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: aws-data-fetcher-errors
+      AlarmDescription: Alert when Lambda function encounters errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref DataFetcherFunction
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopic
+
+  # CloudWatch Alarm - Duration monitoring
+  DurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: aws-data-fetcher-duration
+      AlarmDescription: Alert when Lambda execution exceeds expected duration
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 120000  # 120 seconds (2 minutes)
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref DataFetcherFunction
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopic
+
+Outputs:
+  OutputBucketName:
+    Description: S3 bucket for output data and cache
+    Value: !Ref OutputBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-OutputBucket'
+
+  LambdaFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt DataFetcherFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionArn'
+
+  LambdaFunctionName:
+    Description: Lambda function name (for manual invocation)
+    Value: !Ref DataFetcherFunction
+
+  ScheduleExpression:
+    Description: EventBridge schedule expression
+    Value: !Ref ScheduleExpression
+
+  S3DataUrl:
+    Description: S3 console URL for data files
+    Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${OutputBucket}?prefix=aws-data/'
+
+  NotificationTopicArn:
+    Description: SNS topic ARN for notifications
+    Value: !Ref NotificationTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-NotificationTopic'
