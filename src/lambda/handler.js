@@ -3,7 +3,7 @@
  * Entry point for Lambda function invocations
  */
 
-const AWSDataFetcher = require('../fetch-aws-data');
+const AWSDataFetcher = require('../core/aws-data-fetcher');
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 
 const snsClient = new SNSClient({});

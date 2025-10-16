@@ -1,20 +1,17 @@
-#!/usr/bin/env node
-
 /**
- * AWS SSM Data Fetcher - Node.js Implementation
+ * AWS SSM Data Fetcher - Core Class
  *
  * Fetches AWS global infrastructure data from SSM Parameter Store
  * and saves it to local JSON files for analysis.
  */
 
 const { SSMClient, GetParametersByPathCommand, GetParameterCommand } = require('@aws-sdk/client-ssm');
-const { Command } = require('commander');
 const chalk = require('chalk');
 const fs = require('fs').promises;
 const path = require('path');
 const https = require('https');
 const config = require('./config');
-const StorageFactory = require('./storage/storage-factory');
+const StorageFactory = require('../storage/storage-factory');
 
 class AWSDataFetcher {
     constructor(region = config.aws.region, customConfig = {}) {
@@ -710,7 +707,7 @@ class AWSDataFetcher {
     async run(options = {}) {
         const scriptStartTime = Date.now();
         console.log(chalk.bold.blue('\n' + '='.repeat(60)));
-        console.log(chalk.bold.blue('🚀 AWS SSM Data Fetcher v1.4.0'));
+        console.log(chalk.bold.blue('🚀 AWS SSM Data Fetcher v1.5.1'));
         console.log(chalk.bold.blue('='.repeat(60) + '\n'));
 
         await this.ensureOutputDir();
@@ -719,7 +716,7 @@ class AWSDataFetcher {
             metadata: {
                 timestamp: new Date().toISOString(),
                 tool: 'nodejs-aws-fetcher',
-                version: '1.4.0'
+                version: '1.5.1'
             }
         };
 
@@ -855,31 +852,9 @@ class AWSDataFetcher {
         } catch (error) {
             console.error(chalk.red('\n❌ Execution failed:', error.message));
             console.error(chalk.gray(error.stack));
-            process.exit(1);
+            throw error;
         }
     }
-}
-
-// CLI Setup
-const program = new Command();
-
-program
-    .name('aws-ssm-fetcher')
-    .description('Fetch AWS global infrastructure data from SSM Parameter Store')
-    .version('1.4.0')
-    .option('-r, --regions-only', 'Fetch only regions data')
-    .option('-s, --services-only', 'Fetch only services data')
-    .option('-m, --include-service-mapping', 'Include service-by-region mapping (optimized, ~3-5 min)')
-    .option('-f, --force-refresh', 'Force refresh cache, bypass cached data (24-hour TTL)')
-    .option('--region <region>', 'AWS region to use for API calls', 'us-east-1')
-    .action(async (options) => {
-        const fetcher = new AWSDataFetcher(options.region);
-        await fetcher.run(options);
-    });
-
-// Run if called directly
-if (require.main === module) {
-    program.parse(process.argv);
 }
 
 module.exports = AWSDataFetcher;

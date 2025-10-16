@@ -93,7 +93,7 @@ Resources:
     Properties:
       FunctionName: aws-data-fetcher
       CodeUri: ./
-      Handler: lambda/handler.handler
+      Handler: src/lambda/handler.handler
       Runtime: nodejs20.x
       Description: Fetches AWS infrastructure data from SSM (complete with service mapping)
       Timeout: 180  # 3 minutes (77s runtime + buffer)

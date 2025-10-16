@@ -509,18 +509,25 @@ Monthly operational costs (based on daily execution):
 
 ```
 nodejs-aws-fetcher/
-├── fetch-aws-data.js          # Main application logic
-├── config.js                  # Configuration settings
-├── template.yaml              # SAM/CloudFormation template
-├── package.json               # Dependencies and scripts
-├── lambda/
-│   └── handler.js             # Lambda entry point
-├── storage/
-│   ├── storage-interface.js   # Storage abstraction
-│   ├── local-storage.js       # Local filesystem storage
-│   ├── s3-storage.js          # S3 storage implementation
-│   └── storage-factory.js     # Storage factory
-├── docs/
+├── src/                       # All source code
+│   ├── cli.js                 # CLI entry point (Commander.js)
+│   ├── core/                  # Core business logic
+│   │   ├── aws-data-fetcher.js  # Main fetcher class
+│   │   └── config.js          # Configuration settings
+│   ├── lambda/                # Lambda deployment
+│   │   └── handler.js         # Lambda entry point
+│   └── storage/               # Storage abstraction layer
+│       ├── storage-interface.js  # Storage abstraction
+│       ├── local-storage.js   # Local filesystem storage
+│       ├── s3-storage.js      # S3 storage implementation
+│       └── storage-factory.js # Storage factory
+├── scripts/                   # Operational scripts
+│   └── setup.sh              # Setup script with verification
+├── tests/                     # Test directory structure
+│   ├── unit/                  # Unit tests
+│   ├── integration/           # Integration tests
+│   └── fixtures/              # Test fixtures
+├── docs/                      # Documentation
 │   ├── DEPLOYMENT_QUICKSTART.md
 │   ├── NOTIFICATIONS_SETUP.md
 │   ├── LAMBDA_DEPLOYMENT_GUIDE.md
@@ -530,6 +537,8 @@ nodejs-aws-fetcher/
 │   ├── regions.json
 │   ├── services.json
 │   └── complete-data.json
+├── template.yaml              # SAM/CloudFormation template
+├── package.json               # Dependencies and scripts
 └── .aws-sam/                  # SAM build artifacts (gitignored)
 ```
 

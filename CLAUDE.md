@@ -12,24 +12,30 @@ This tool was built to solve a specific problem: region count discrepancies and 
 
 ## Core Architecture
 
-### Single-Class Design
+### Modular Design
 
-The entire implementation is in `fetch-aws-data.js` with the `AWSDataFetcher` class handling all operations:
+The implementation is split into modular components for maintainability and scalability:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  SSM Client     │───▶│  AWSDataFetcher │───▶│  JSON Output    │
-│  (us-east-1)    │    │  (orchestrator) │    │  (./output/)    │
+│  CLI Entry      │───▶│  Core Fetcher   │───▶│  Storage Layer  │
+│  (src/cli.js)   │    │  (src/core/)    │    │  (src/storage/) │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-                              │
-                              │
-                              ▼
-                    ┌──────────────────┐
-                    │   - Regions      │
-                    │   - Services     │
-                    │   - Mapping      │
+                              │                        │
+                              │                        ▼
+                              ▼              ┌─────────────────┐
+                    ┌──────────────────┐    │  Local / S3     │
+                    │   - Regions      │    │  JSON Output    │
+                    │   - Services     │    │  (./output/)    │
+                    │   - Mapping      │    └─────────────────┘
                     │   - Caching      │
                     └──────────────────┘
+
+Lambda Deployment:
+┌─────────────────┐    ┌─────────────────┐
+│  Lambda Handler │───▶│  Core Fetcher   │
+│ (src/lambda/)   │    │  (src/core/)    │
+└─────────────────┘    └─────────────────┘
 ```
 
 ### Data Discovery Strategy
@@ -322,20 +328,22 @@ nvm install 18  # If using nvm
 
 ## Design Decisions and Rationale
 
-1. **Single-file architecture**: Entire implementation in one file for portability and easy standalone deployment
+1. **Modular architecture (v1.6.0)**: Separated CLI, core logic, Lambda handler, and storage for maintainability
 2. **SSM as single source**: AWS's authoritative global infrastructure metadata with complete region coverage
 3. **Dynamic name fetching (v1.4.0)**: Fetches service names from SSM for zero maintenance and always-current data
 4. **Class-based design**: Encapsulates state (client, caching, output) and provides clean method organization
-5. **24-hour caching**: Intelligent caching for 10-50x speedup on repeated runs
-6. **Parallel batch processing**: Processes 5 regions simultaneously with adaptive throttling
-7. **Pagination without limits**: Uses proper AWS pagination with NextToken and retry logic
-8. **Structured JSON output**: Includes metadata, timestamps, and source attribution for data analysis
-9. **CLI-first design**: Commander.js provides flexible command-line interface with multiple run modes
-10. **No external dependencies**: Pure Node.js with local JSON output (no databases, no external services)
-11. **Chalk for output**: Color-coded console output for easy visual parsing during execution
-12. **Adaptive throttle delay**: 25-50ms base delay prevents API rate limiting with exponential backoff retry
-13. **Runtime tracking**: Displays execution time for performance monitoring
-14. **Error handling**: Uses service code as name if SSM name fetching fails
+5. **Storage abstraction**: Factory pattern supports both local filesystem and S3 for flexible deployment
+6. **24-hour caching**: Intelligent caching for 10-50x speedup on repeated runs
+7. **Parallel batch processing**: Processes 5 regions simultaneously with adaptive throttling
+8. **Pagination without limits**: Uses proper AWS pagination with NextToken and retry logic
+9. **Structured JSON output**: Includes metadata, timestamps, and source attribution for data analysis
+10. **CLI-first design**: Commander.js provides flexible command-line interface with multiple run modes
+11. **Lambda-ready**: Separate handler for AWS Lambda deployment with environment-based configuration
+12. **Chalk for output**: Color-coded console output for easy visual parsing during execution
+13. **Adaptive throttle delay**: 25-50ms base delay prevents API rate limiting with exponential backoff retry
+14. **Runtime tracking**: Displays execution time for performance monitoring
+15. **Error handling**: Uses service code as name if SSM name fetching fails
+16. **Test-ready structure**: Organized tests/ directory for unit, integration, and fixture files
 
 ## Dependencies
 
@@ -390,27 +398,42 @@ Only one AWS SDK dependency needed - SSM Parameter Store provides all infrastruc
 
 ```
 nodejs-aws-fetcher/
-├── fetch-aws-data.js     # Single-file implementation
-│                         # - AWSDataFetcher class with caching
-│                         # - Commander.js CLI setup
-│                         # - Parallel processing & retry logic
-├── package.json          # Dependencies and npm scripts
-├── package-lock.json     # Dependency lock file
-├── setup.sh             # Setup script with verification
-├── README.md            # User documentation
-├── CHANGELOG.md         # Version history and changes
-├── CLAUDE.md            # This file (developer guidance)
-├── .gitignore           # Git ignore patterns
-├── node_modules/         # Dependencies (gitignored)
-└── output/              # Generated JSON files (auto-created, gitignored)
-    ├── regions.json                      # Region comparison (SSM vs EC2)
-    ├── services.json                     # Discovered AWS services
-    ├── region-details.json               # Only with --include-details
-    ├── complete-data.json                # Single source of truth
-    └── .cache-services-by-region.json    # 24-hour cache (auto-managed)
+├── src/                          # All source code
+│   ├── cli.js                    # CLI entry point (Commander.js)
+│   ├── core/                     # Core business logic
+│   │   ├── aws-data-fetcher.js   # Main fetcher class with caching
+│   │   └── config.js             # Configuration constants
+│   ├── lambda/                   # Lambda deployment
+│   │   └── handler.js            # Lambda function handler
+│   └── storage/                  # Storage abstraction layer
+│       ├── storage-interface.js  # Storage interface definition
+│       ├── local-storage.js      # Local filesystem implementation
+│       ├── s3-storage.js         # S3 bucket implementation
+│       └── storage-factory.js    # Storage factory pattern
+├── scripts/                      # Operational scripts
+│   └── setup.sh                  # Setup script with verification
+├── tests/                        # Test directory structure
+│   ├── unit/                     # Unit tests
+│   ├── integration/              # Integration tests
+│   └── fixtures/                 # Test fixtures
+├── docs/                         # Documentation (properly organized)
+├── output/                       # Generated JSON files (auto-created, gitignored)
+│   ├── regions.json              # Region data with metadata
+│   ├── services.json             # Discovered AWS services
+│   ├── complete-data.json        # Single source of truth
+│   └── .cache-services-by-region.json  # 24-hour cache (auto-managed)
+├── package.json                  # Dependencies and npm scripts
+├── package-lock.json             # Dependency lock file (committed)
+├── template.yaml                 # AWS SAM deployment template
+├── samconfig.toml               # SAM configuration
+├── README.md                     # User documentation
+├── CHANGELOG.md                  # Version history
+├── CLAUDE.md                     # This file (developer guidance)
+├── DATA_CONTRACT.md              # JSON schema specification
+└── .gitignore                    # Git ignore patterns
 ```
 
-**Architecture Simplification (v1.2.0)**: Removed redundant `services-by-region.json` file. All data now lives in `complete-data.json` as the single source of truth.
+**Architecture Evolution**: Originally a single-file implementation, restructured for maintainability with clear separation of concerns: CLI, core logic, Lambda deployment, and storage abstraction.
 
 ## Use Cases
 
@@ -453,6 +476,16 @@ This tool is designed for:
 The `--include-service-mapping` flag uses intelligent caching to dramatically speed up repeated runs.
 
 ## Version History
+
+### v1.6.0 (2025-10-16) - Project Restructuring
+- ✅ Modular architecture with src/ directory organization
+- ✅ Separated CLI entry point (src/cli.js) from core logic (src/core/aws-data-fetcher.js)
+- ✅ Organized code into logical modules: core/, lambda/, storage/
+- ✅ Moved operational scripts to scripts/ directory
+- ✅ Created test directory structure: tests/unit/, tests/integration/, tests/fixtures/
+- ✅ Updated all import paths and deployment configurations
+- ✅ Professional project structure following Node.js best practices
+- ✅ Committed package-lock.json for reproducible builds
 
 ### v1.4.0 (2025-10-11) - Enhanced Region Metadata & Dynamic Names
 - ✅ Region launch dates and blog URLs from AWS RSS feed (historical context)
