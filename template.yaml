@@ -32,8 +32,24 @@ Parameters:
     Description: Email address for success and error notifications
     Default: ''
 
+  DistributionBucketName:
+    Type: String
+    Default: www.aws-services.synepho.com
+    Description: S3 bucket for CloudFront distribution (leave empty to disable distribution)
+
+  DistributionKeyPrefix:
+    Type: String
+    Default: data
+    Description: Key prefix in distribution bucket for data files
+
+  CloudFrontDistributionId:
+    Type: String
+    Default: EBTYLWOK3WVOK
+    Description: CloudFront distribution ID for cache invalidation
+
 Conditions:
   HasNotificationEmail: !Not [!Equals [!Ref NotificationEmail, '']]
+  HasDistributionBucket: !Not [!Equals [!Ref DistributionBucketName, '']]
 
 Resources:
   # S3 Bucket for outputs and cache
@@ -113,6 +129,11 @@ Resources:
           # Notifications
           SNS_TOPIC_ARN: !Ref NotificationTopic
 
+          # Distribution configuration
+          DISTRIBUTION_BUCKET: !Ref DistributionBucketName
+          DISTRIBUTION_PREFIX: !Ref DistributionKeyPrefix
+          CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
+
           # Logging
           LOG_LEVEL: info
           NODE_ENV: production
@@ -138,6 +159,29 @@ Resources:
                 - sns:Publish
               Resource:
                 - !Ref NotificationTopic
+        # S3 write access for distribution bucket (only if configured)
+        - !If
+          - HasDistributionBucket
+          - Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource:
+                  - !Sub 'arn:aws:s3:::${DistributionBucketName}/${DistributionKeyPrefix}/*'
+          - !Ref AWS::NoValue
+        # CloudFront invalidation (only if configured)
+        - !If
+          - HasDistributionBucket
+          - Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                Resource:
+                  - !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistributionId}'
+          - !Ref AWS::NoValue
       Events:
         # Daily EventBridge schedule
         DailySchedule:

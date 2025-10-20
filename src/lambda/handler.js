@@ -81,6 +81,45 @@ exports.handler = async (event, context) => {
       requestId: context.requestId
     });
 
+    // Distribute to CloudFront-backed website bucket (non-critical)
+    let distributionResult = null;
+    let invalidationResult = null;
+
+    try {
+      console.log('📤 Starting distribution to website bucket...');
+
+      distributionResult = await fetcher.storage.distributeToWebsite(
+        process.env.DISTRIBUTION_BUCKET,
+        process.env.DISTRIBUTION_PREFIX || 'data'
+      );
+
+      if (distributionResult.distributed) {
+        console.log(`✅ Distribution complete: ${distributionResult.successCount}/${distributionResult.totalFiles} files`);
+
+        // Invalidate CloudFront cache for immediate updates
+        invalidationResult = await fetcher.storage.invalidateCloudFrontCache(
+          process.env.CLOUDFRONT_DISTRIBUTION_ID,
+          process.env.DISTRIBUTION_PREFIX || 'data'
+        );
+
+        if (invalidationResult.invalidated) {
+          console.log(`✅ CloudFront cache invalidated successfully`);
+        }
+      } else {
+        console.log(`⏭️  Distribution skipped: ${distributionResult.reason || 'Unknown reason'}`);
+      }
+    } catch (distributionError) {
+      // Non-critical error - don't fail the Lambda
+      console.error('⚠️  Distribution failed (non-critical):', distributionError.message);
+      console.error('   Source data saved successfully. Distribution can be retried manually.');
+
+      distributionResult = {
+        distributed: false,
+        error: distributionError.message,
+        errorType: distributionError.name
+      };
+    }
+
     // Calculate cumulative services across all regions
     let cumulativeServices = 0;
     if (result.servicesByRegion?.byRegion) {
@@ -113,6 +152,15 @@ Average Services/Region: ${result.servicesByRegion?.summary?.averageServicesPerR
 Cached Regions: ${result.servicesByRegion?.summary?.cachedRegions || 0}
 Freshly Fetched: ${result.servicesByRegion?.summary?.fetchedRegions || 0}
 
+📤 Distribution Status:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${distributionResult?.distributed
+  ? `✅ Distributed: ${distributionResult.successCount}/${distributionResult.totalFiles} files
+Distribution Bucket: ${distributionResult.distributionBucket}
+Public URL: https://aws-services.synepho.com/${distributionResult.distributionPrefix}/
+CloudFront Cache: ${invalidationResult?.invalidated ? `Invalidated (ID: ${invalidationResult.invalidationId})` : 'Not invalidated'}`
+  : `⏭️  Distribution skipped: ${distributionResult?.reason || 'Not configured'}`}
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ All data successfully stored in S3!
 `.trim();
@@ -137,7 +185,19 @@ Freshly Fetched: ${result.servicesByRegion?.summary?.fetchedRegions || 0}
             regions: result.regionPath,
             services: result.servicePath,
             complete: result.completePath
-          }
+          },
+          distribution: distributionResult ? {
+            distributed: distributionResult.distributed,
+            successCount: distributionResult.successCount,
+            totalFiles: distributionResult.totalFiles,
+            distributionBucket: distributionResult.distributionBucket,
+            distributionPrefix: distributionResult.distributionPrefix
+          } : undefined,
+          invalidation: invalidationResult ? {
+            invalidated: invalidationResult.invalidated,
+            invalidationId: invalidationResult.invalidationId,
+            status: invalidationResult.status
+          } : undefined
         },
         requestId: context.requestId
       })

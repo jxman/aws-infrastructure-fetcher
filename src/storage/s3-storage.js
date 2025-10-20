@@ -4,12 +4,14 @@
  */
 
 const StorageInterface = require('./storage-interface');
-const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand } = require('@aws-sdk/client-s3');
+const { CloudFrontClient, CreateInvalidationCommand } = require('@aws-sdk/client-cloudfront');
 
 class S3Storage extends StorageInterface {
   constructor(bucketName, prefix = 'aws-data') {
     super();
     this.s3Client = new S3Client({});
+    this.cloudFrontClient = new CloudFrontClient({});
     this.bucketName = bucketName;
     this.prefix = prefix;
   }
@@ -89,6 +91,164 @@ class S3Storage extends StorageInterface {
     console.log(`📚 Historical snapshot saved to: s3://${this.bucketName}/${historyKey}`);
 
     return `s3://${this.bucketName}/${key}`;
+  }
+
+  /**
+   * Distribute data files to CloudFront-backed website bucket
+   * Follows the same pattern as aws-service-report-generator
+   *
+   * @param {string} distributionBucket - Website bucket name (e.g., www.aws-services.synepho.com)
+   * @param {string} distributionPrefix - Key prefix in distribution bucket (e.g., 'data')
+   * @returns {Promise<Object>} Distribution result
+   */
+  async distributeToWebsite(distributionBucket, distributionPrefix = 'data') {
+    // Skip if not configured
+    if (!distributionBucket) {
+      console.log('⏭️  Distribution skipped (not configured)');
+      return {
+        distributed: false,
+        reason: 'Distribution bucket not configured'
+      };
+    }
+
+    const files = [
+      'complete-data.json',
+      'regions.json',
+      'services.json'
+    ];
+
+    console.log('📤 Distributing data files to CloudFront-backed website bucket...');
+    console.log(`   Source: s3://${this.bucketName}/${this.prefix}/`);
+    console.log(`   Destination: s3://${distributionBucket}/${distributionPrefix}/`);
+
+    const results = [];
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (const file of files) {
+      try {
+        const sourceKey = `${this.prefix}/${file}`;
+        const destinationKey = `${distributionPrefix}/${file}`;
+
+        const command = new CopyObjectCommand({
+          Bucket: distributionBucket,
+          CopySource: `${this.bucketName}/${sourceKey}`,
+          Key: destinationKey,
+          ContentType: 'application/json',
+          CacheControl: 'public, max-age=300',  // 5 minutes (same as Excel reports)
+          MetadataDirective: 'REPLACE',
+          Metadata: {
+            'distributed-at': new Date().toISOString(),
+            'source-bucket': this.bucketName,
+            'source-key': sourceKey
+          }
+        });
+
+        await this.s3Client.send(command);
+
+        console.log(`✅ Distributed: ${file}`);
+        console.log(`   From: s3://${this.bucketName}/${sourceKey}`);
+        console.log(`   To:   s3://${distributionBucket}/${destinationKey}`);
+
+        results.push({
+          file,
+          success: true,
+          destinationPath: `s3://${distributionBucket}/${destinationKey}`
+        });
+        successCount++;
+
+      } catch (error) {
+        console.error(`⚠️  Failed to distribute ${file}:`, error.message);
+        console.error(`   This is a non-critical operation. Source data saved successfully.`);
+
+        results.push({
+          file,
+          success: false,
+          error: error.message,
+          errorType: error.name
+        });
+        failureCount++;
+      }
+    }
+
+    const distributionResult = {
+      distributed: successCount > 0,
+      distributionBucket,
+      distributionPrefix,
+      totalFiles: files.length,
+      successCount,
+      failureCount,
+      results
+    };
+
+    if (successCount === files.length) {
+      console.log(`✅ All ${files.length} files distributed successfully`);
+    } else if (successCount > 0) {
+      console.log(`⚠️  Partial distribution: ${successCount}/${files.length} files succeeded`);
+    } else {
+      console.error(`❌ Distribution failed for all files`);
+    }
+
+    return distributionResult;
+  }
+
+  /**
+   * Invalidate CloudFront cache for distributed data files
+   * Ensures immediate cache refresh instead of waiting for TTL expiration
+   *
+   * @param {string} distributionId - CloudFront distribution ID
+   * @param {string} distributionPrefix - Key prefix to invalidate (e.g., 'data')
+   * @returns {Promise<Object>} Invalidation result
+   */
+  async invalidateCloudFrontCache(distributionId, distributionPrefix = 'data') {
+    // Skip if not configured
+    if (!distributionId) {
+      console.log('⏭️  CloudFront invalidation skipped (not configured)');
+      return {
+        invalidated: false,
+        reason: 'CloudFront distribution ID not configured'
+      };
+    }
+
+    try {
+      console.log('🔄 Creating CloudFront cache invalidation...');
+      console.log(`   Distribution ID: ${distributionId}`);
+      console.log(`   Path: /${distributionPrefix}/*`);
+
+      const command = new CreateInvalidationCommand({
+        DistributionId: distributionId,
+        InvalidationBatch: {
+          CallerReference: `data-update-${Date.now()}`,
+          Paths: {
+            Quantity: 1,
+            Items: [`/${distributionPrefix}/*`]
+          }
+        }
+      });
+
+      const response = await this.cloudFrontClient.send(command);
+
+      console.log(`✅ CloudFront cache invalidated: ID=${response.Invalidation.Id}`);
+      console.log(`   Status: ${response.Invalidation.Status}`);
+
+      return {
+        invalidated: true,
+        invalidationId: response.Invalidation.Id,
+        status: response.Invalidation.Status,
+        distributionId
+      };
+
+    } catch (error) {
+      console.error('⚠️  CloudFront invalidation failed (non-critical):', error.message);
+      console.error('   Cache will expire naturally based on TTL settings.');
+
+      return {
+        invalidated: false,
+        error: error.message,
+        errorType: error.name,
+        distributionId
+      };
+    }
   }
 
   async loadCache() {

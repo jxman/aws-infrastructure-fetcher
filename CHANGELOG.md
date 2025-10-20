@@ -1,5 +1,101 @@
 # Changelog
 
+## [1.6.0] - 2025-10-20
+
+### Added - CloudFront Distribution Integration
+
+**Data files now automatically distributed to CloudFront-backed website for global access**
+
+#### New Features
+
+1. **CloudFront Distribution**
+   - Automatic distribution to `www.aws-services.synepho.com/data/`
+   - Public URLs: `https://aws-services.synepho.com/data/{file}.json`
+   - Cache-Control: `public, max-age=300` (5 minutes)
+   - Dual storage: source bucket (backup) + distribution bucket (public access)
+
+2. **Automatic Cache Invalidation**
+   - CloudFront cache invalidated after each data update
+   - Ensures immediate data freshness at edge locations worldwide
+   - Invalidation ID tracked in Lambda response and SNS notifications
+
+3. **Enhanced Monitoring**
+   - Distribution status included in Lambda response
+   - SNS notifications show distribution success/failure
+   - CloudWatch Logs include detailed distribution tracking
+
+#### Implementation Details
+
+1. **S3 Storage Layer** (`src/storage/s3-storage.js`)
+   - Added `distributeToWebsite()` method - copies files to distribution bucket
+   - Added `invalidateCloudFrontCache()` method - invalidates CloudFront cache
+   - Non-critical operations: errors logged but don't fail Lambda execution
+
+2. **Lambda Handler** (`src/lambda/handler.js`)
+   - Calls distribution after successful data fetch
+   - Triggers cache invalidation after successful distribution
+   - Includes distribution results in response and SNS notifications
+
+3. **Infrastructure** (`template.yaml`)
+   - Added `DistributionBucketName` parameter (default: `www.aws-services.synepho.com`)
+   - Added `DistributionKeyPrefix` parameter (default: `data`)
+   - Added `CloudFrontDistributionId` parameter (default: `EBTYLWOK3WVOK`)
+   - Added S3 write permissions for distribution bucket
+   - Added CloudFront invalidation permissions
+
+4. **Dependencies**
+   - Added `@aws-sdk/client-cloudfront@^3.645.0` for cache invalidation
+
+#### Benefits
+
+1. **Global Performance**
+   - Edge caching reduces latency for international users
+   - CloudFront CDN distribution across 450+ edge locations
+
+2. **Cost Protection**
+   - Reduces S3 GET requests by ~95% through edge caching
+   - CloudFront caching protects against traffic spikes
+
+3. **Immediate Updates**
+   - Automatic cache invalidation ensures fresh data
+   - No waiting for TTL expiration (previously 5-minute delay)
+
+4. **Unified Infrastructure**
+   - Same bucket and CloudFront distribution as website
+   - Consistent with aws-services-reporter pattern
+
+#### Public Data Access
+
+**Recommended (CloudFront-backed)**:
+```javascript
+const dataUrl = 'https://aws-services.synepho.com/data/complete-data.json';
+```
+
+**Not Recommended (Direct S3)**:
+```javascript
+// Avoid - higher costs, no edge caching
+const dataUrl = 'https://aws-data-fetcher-output.s3.amazonaws.com/aws-data/complete-data.json';
+```
+
+#### Configuration
+
+Distribution is enabled by default. To disable:
+```bash
+sam deploy --parameter-overrides DistributionBucketName=""
+```
+
+#### Files Modified
+
+- `package.json`: Added CloudFront SDK dependency, version bump to 1.6.0
+- `src/storage/s3-storage.js`: Added distribution and cache invalidation methods
+- `src/lambda/handler.js`: Integrated distribution calls and SNS notification updates
+- `template.yaml`: Added distribution parameters and IAM permissions
+- `samconfig.toml`: Added distribution configuration defaults
+- `README.md`: Added Data Distribution section
+- `CHANGELOG.md`: This entry
+
+---
+
 ## [1.5.1] - 2025-10-13
 
 ### Changed - Node.js Runtime Upgrade

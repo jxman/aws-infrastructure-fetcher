@@ -263,6 +263,81 @@ For applications consuming this data (dashboards, reporters, analysis tools), se
 
 This contract guarantees backward compatibility and provides validation patterns for downstream consumers.
 
+## Data Distribution
+
+Generated data files are automatically distributed to two locations for different use cases:
+
+### 1. Source Bucket (Primary Storage)
+
+**Location**: `s3://aws-data-fetcher-output/aws-data/`
+
+- Primary storage and backup
+- Historical snapshots (30-day retention)
+- Direct S3 access (for AWS-internal use)
+- Complete audit trail
+
+### 2. Distribution Bucket (Public Access)
+
+**Location**: `s3://www.aws-services.synepho.com/data/`
+**Public URL**: `https://aws-services.synepho.com/data/`
+
+- CloudFront-backed CDN distribution
+- Edge caching for global performance
+- **Recommended** for all public consumption
+- Cache-Control: `public, max-age=300` (5 minutes)
+- Automatic cache invalidation after updates
+
+### Public Data Access
+
+Applications should fetch data from the CloudFront distribution for optimal performance:
+
+**Recommended (CloudFront-backed, globally cached)**:
+```javascript
+const completeDataUrl = 'https://aws-services.synepho.com/data/complete-data.json';
+const regionsUrl = 'https://aws-services.synepho.com/data/regions.json';
+const servicesUrl = 'https://aws-services.synepho.com/data/services.json';
+
+// Fetch with standard HTTP client
+const response = await fetch(completeDataUrl);
+const data = await response.json();
+```
+
+**Not Recommended (Direct S3, higher costs)**:
+```javascript
+// Avoid this - higher costs, no edge caching
+const directS3Url = 'https://aws-data-fetcher-output.s3.amazonaws.com/aws-data/complete-data.json';
+```
+
+### Distribution Process
+
+The Lambda function automatically:
+1. Fetches AWS infrastructure data from SSM Parameter Store
+2. Saves to source bucket (`aws-data-fetcher-output`)
+3. **Copies to distribution bucket** (`www.aws-services.synepho.com/data/`)
+4. **Invalidates CloudFront cache** for immediate updates
+5. Sends SNS notification with distribution status
+
+### Cache Behavior
+
+- **Edge Cache TTL**: 5 minutes (respects `Cache-Control` header)
+- **Automatic Invalidation**: CloudFront cache cleared after each update
+- **First Request**: May show `X-Cache: Miss from cloudfront`
+- **Subsequent Requests**: Show `X-Cache: Hit from cloudfront`
+- **After Update**: Cache invalidated, next request fetches fresh data
+
+### Disabling Distribution
+
+To disable CloudFront distribution (Lambda will only save to source bucket):
+
+```bash
+sam deploy --parameter-overrides DistributionBucketName=""
+```
+
+Or update `samconfig.toml`:
+```toml
+parameter_overrides = "... DistributionBucketName=\"\" ..."
+```
+
 ## Usage
 
 ### Lambda Invocation (Recommended)
