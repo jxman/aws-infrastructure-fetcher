@@ -41,15 +41,17 @@ Lambda Deployment:
 ### Data Discovery Strategy
 
 **SSM Parameter Store + RSS Feed as Authoritative Sources**:
+
 1. **Region Discovery**: Fetches all 38 AWS regions from SSM parameters with official long names
 2. **Availability Zone Mapping**: Fetches all 120+ AZs and maps them to parent regions for AZ counts
 3. **Region Launch Data**: Fetches launch dates and blog URLs from AWS RSS feed
-4. **Service Discovery**: Fetches 395+ AWS services from SSM parameters with official full names
+4. **Service Discovery**: Fetches 394+ AWS services from SSM parameters with official full names
 5. **Service Name Fetching**: Dynamically fetches official service names from SSM (zero maintenance)
 6. **Service-by-Region Mapping**: Queries each region for available services
 7. **24-Hour Caching**: Intelligent caching for repeated runs
 
 **Why SSM Parameter Store?**
+
 - AWS's official global infrastructure metadata source
 - Includes all partitions: commercial (34), China (2), GovCloud (2)
 - Complete coverage: **38 total regions**
@@ -58,6 +60,7 @@ Lambda Deployment:
 - **Official service names**: Always current, no manual maintenance required
 
 **Region Output** (`regions.json`):
+
 ```json
 {
   "count": 38,
@@ -85,6 +88,7 @@ Lambda Deployment:
 ### Data Source Paths
 
 **SSM Parameter Store:**
+
 ```
 /aws/service/global-infrastructure/
 ├── regions/                           # Region codes (38 total)
@@ -103,7 +107,7 @@ Lambda Deployment:
 │   │   └── parent-region              # "us-west-2"
 │   └── {az-id}/
 │       └── parent-region              # Parent region code (for AZ count mapping)
-└── services/                          # Service codes (395+)
+└── services/                          # Service codes (394+)
     ├── ec2/
     │   └── longName                   # "Amazon Elastic Compute Cloud (EC2)"
     ├── s3/
@@ -113,6 +117,7 @@ Lambda Deployment:
 ```
 
 **AWS RSS Feed:**
+
 ```
 https://docs.aws.amazon.com/global-infrastructure/latest/regions/regions.rss
 ├── Launch dates for regions (34 available)
@@ -132,7 +137,7 @@ do {
 
   // 100ms throttle delay between pages
   if (nextToken) {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 } while (nextToken);
 ```
@@ -152,6 +157,7 @@ npm install
 ```
 
 The setup script verifies:
+
 - Node.js >= 18.0.0
 - AWS credentials configuration
 - Creates `./output/` directory
@@ -194,24 +200,26 @@ node fetch-aws-data.js --help
 
 All files saved to `./output/` directory (auto-created):
 
-| File | Content | Size Estimate | When Generated |
-|------|---------|---------------|----------------|
-| `regions.json` | SSM regions with names, AZ counts, launch dates, blog URLs | ~8KB | Always |
-| `services.json` | AWS service codes discovered from SSM | ~8KB | Always |
-| `region-details.json` | Detailed metadata per region | Varies | Only with `--include-details` |
-| `complete-data.json` | **Single source of truth** - all data combined with metadata | ~12KB (no mapping)<br>~400KB (with mapping) | Always |
-| `.cache-services-by-region.json` | 24-hour cache for service mapping (auto-managed) | ~400KB | Only with `--include-service-mapping` |
+| File                             | Content                                                      | Size Estimate                               | When Generated                        |
+| -------------------------------- | ------------------------------------------------------------ | ------------------------------------------- | ------------------------------------- |
+| `regions.json`                   | SSM regions with names, AZ counts, launch dates, blog URLs   | ~8KB                                        | Always                                |
+| `services.json`                  | AWS service codes discovered from SSM                        | ~8KB                                        | Always                                |
+| `region-details.json`            | Detailed metadata per region                                 | Varies                                      | Only with `--include-details`         |
+| `complete-data.json`             | **Single source of truth** - all data combined with metadata | ~12KB (no mapping)<br>~400KB (with mapping) | Always                                |
+| `.cache-services-by-region.json` | 24-hour cache for service mapping (auto-managed)             | ~400KB                                      | Only with `--include-service-mapping` |
 
 **Important**: `complete-data.json` is the **single source of truth**. All other files are lightweight subsets provided for convenience. Service-by-region mapping data is only in `complete-data.json` (under `servicesByRegion` key).
 
 ### Output Format
 
 All JSON files include:
+
 - `timestamp` - ISO 8601 format
 - `source` - Data source identifier (ssm, ec2)
 - `count` - Number of items discovered
 
 Example structure:
+
 ```json
 {
   "count": 38,
@@ -224,6 +232,7 @@ Example structure:
 ## AWS Credentials
 
 Requires AWS credentials via one of:
+
 1. **AWS CLI**: `aws configure`
 2. **Environment variables**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
 3. **IAM roles**: If running on EC2/Lambda
@@ -243,6 +252,7 @@ aws ec2 describe-regions --all-regions --query 'Regions[*].RegionName' --output 
 ### Region Extraction (SSM)
 
 Uses regex pattern matching on SSM parameter names:
+
 ```javascript
 const match = param.Name.match(/\/regions\/([a-z0-9-]+)$/);
 if (match) {
@@ -253,6 +263,7 @@ if (match) {
 ### Service Extraction (SSM)
 
 Similar pattern matching for services:
+
 ```javascript
 const match = param.Name.match(/\/services\/([a-z0-9-]+)$/);
 ```
@@ -260,11 +271,12 @@ const match = param.Name.match(/\/services\/([a-z0-9-]+)$/);
 ### eu-west-3 Verification
 
 The code explicitly checks for and reports on eu-west-3 presence in both SSM and EC2 sources:
+
 ```javascript
-if (regions.includes('eu-west-3')) {
-  console.log('✅ eu-west-3 found in SSM regions');
+if (regions.includes("eu-west-3")) {
+  console.log("✅ eu-west-3 found in SSM regions");
 } else {
-  console.log('⚠️  eu-west-3 NOT found in SSM regions');
+  console.log("⚠️  eu-west-3 NOT found in SSM regions");
 }
 ```
 
@@ -278,10 +290,11 @@ When running `npm start`, expect:
 - **Commercial Regions**: 34 (standard AWS partition)
 - **China Regions**: 2 (cn-north-1, cn-northwest-1)
 - **GovCloud Regions**: 2 (us-gov-east-1, us-gov-west-1)
-- **Services Discovered**: 395+ AWS services
+- **Services Discovered**: 394+ AWS services
 - **eu-west-3**: Present and verified ✅
 
 Console output will show:
+
 ```
 🌍 Discovering AWS regions...
 📡 Fetching SSM parameters from: /aws/service/global-infrastructure/regions
@@ -315,12 +328,14 @@ npm install
 ### API Throttling
 
 The script includes 100ms delays between paginated requests. If still throttled:
+
 - Increase the delay in `fetchAllSSMParameters()` method
 - Use `--region` flag to query from a different AWS region
 
 ### Node.js Version Issues
 
 Requires Node.js >= 18.0.0 for AWS SDK v3:
+
 ```bash
 node -v  # Check version
 nvm install 18  # If using nvm
@@ -349,9 +364,9 @@ nvm install 18  # If using nvm
 
 ```json
 {
-  "@aws-sdk/client-ssm": "^3.645.0",    // SSM Parameter Store (only AWS SDK needed)
-  "commander": "^11.1.0",               // CLI argument parsing
-  "chalk": "^4.1.2"                     // Terminal colors
+  "@aws-sdk/client-ssm": "^3.645.0", // SSM Parameter Store (only AWS SDK needed)
+  "commander": "^11.1.0", // CLI argument parsing
+  "chalk": "^4.1.2" // Terminal colors
 }
 ```
 
@@ -438,6 +453,7 @@ nodejs-aws-fetcher/
 ## Use Cases
 
 This tool is designed for:
+
 1. **Verifying AWS region discovery logic** in other applications
 2. **Comparing SSM vs EC2 region sources** to identify discrepancies
 3. **Auditing AWS infrastructure data** for completeness
@@ -455,8 +471,9 @@ This tool is designed for:
   - **Partial cache**: ~1-3 minutes (only fetches stale regions)
 
 **Note on v1.4.0 Enhancements**:
+
 - **Service names**: Fetched dynamically from SSM Parameter Store
-  - Adds ~30 seconds to service discovery (395 API calls for names)
+  - Adds ~30 seconds to service discovery (394 API calls for names)
   - **Trade-off**: Slightly slower but zero maintenance required
   - Service names are always official and up-to-date from AWS
 - **Availability Zone counts**: Added to all regions
@@ -478,6 +495,7 @@ The `--include-service-mapping` flag uses intelligent caching to dramatically sp
 ## Version History
 
 ### v1.6.0 (2025-10-16) - Project Restructuring
+
 - ✅ Modular architecture with src/ directory organization
 - ✅ Separated CLI entry point (src/cli.js) from core logic (src/core/aws-data-fetcher.js)
 - ✅ Organized code into logical modules: core/, lambda/, storage/
@@ -488,6 +506,7 @@ The `--include-service-mapping` flag uses intelligent caching to dramatically sp
 - ✅ Committed package-lock.json for reproducible builds
 
 ### v1.4.0 (2025-10-11) - Enhanced Region Metadata & Dynamic Names
+
 - ✅ Region launch dates and blog URLs from AWS RSS feed (historical context)
 - ✅ Availability Zone counts added to all regions (infrastructure planning)
 - ✅ Service names fetched dynamically from SSM Parameter Store
@@ -498,23 +517,27 @@ The `--include-service-mapping` flag uses intelligent caching to dramatically sp
 - Performance: ~36 seconds slower but fully automatic with rich metadata
 
 ### v1.3.0 (2025-10-11) - SSM-Only Architecture
+
 - ✅ Removed EC2 API dependency
 - ✅ SSM as single authoritative source
 - ✅ Runtime tracking in output
 - ✅ Simplified codebase (~100 lines removed)
 
 ### v1.2.0 (2025-10-11) - Architecture Simplification
+
 - ✅ Removed redundant services-by-region.json
 - ✅ 24-hour intelligent caching system
 - ✅ 10-50x speedup for repeated runs
 - ✅ complete-data.json as single source of truth
 
 ### v1.1.0 (2025-10-11) - Performance Phase 1
+
 - ✅ Parallel batch processing (4-5x speedup)
 - ✅ Adaptive throttling with retry logic
 - ✅ Real-time progress tracking with ETA
 
 ### v1.0.0 (2025-10-10) - Initial Release
+
 - ✅ Dual-source region discovery (SSM + EC2)
 - ✅ Service discovery from SSM
 - ✅ Region comparison and merging

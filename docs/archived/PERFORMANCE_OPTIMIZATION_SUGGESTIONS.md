@@ -21,7 +21,7 @@ Total Runtime: ~120 seconds (2 minutes)
 
 2. Service Discovery:       ~30-35 seconds
    - Fetch service codes:    ~3 seconds
-   - Service names (395):    ~30 seconds (sequential, 25ms each)
+   - Service names (394):    ~30 seconds (sequential, 25ms each)
 
 3. Service-by-Region:       ~70-80 seconds
    - 38 regions, batch=5:    ~70 seconds
@@ -40,16 +40,18 @@ Total Runtime: ~120 seconds (2 minutes)
 #### A. Parallel Region Name Fetching
 
 **Current code (lines 276-319)**:
+
 ```javascript
 // Sequential: ~3 seconds for 38 regions
 for (const regionCode of regionCodesArray) {
-    const command = new GetParameterCommand({ Name: longNamePath });
-    const response = await this.ssmClient.send(command);
-    // ... 25ms delay
+  const command = new GetParameterCommand({ Name: longNamePath });
+  const response = await this.ssmClient.send(command);
+  // ... 25ms delay
 }
 ```
 
 **Optimized**:
+
 ```javascript
 // Parallel batches: ~0.5 seconds for 38 regions
 async fetchRegionNames(regionCodes) {
@@ -90,17 +92,19 @@ async fetchRegionNames(regionCodes) {
 
 #### B. Parallel Service Name Fetching
 
-**Current code (lines 364-395)**:
+**Current code (lines 364-394)**:
+
 ```javascript
-// Sequential: ~30 seconds for 395 services
+// Sequential: ~30 seconds for 394 services
 for (const serviceCode of serviceCodesArray) {
-    const command = new GetParameterCommand({ Name: longNamePath });
-    const response = await this.ssmClient.send(command);
-    // ... 25ms delay
+  const command = new GetParameterCommand({ Name: longNamePath });
+  const response = await this.ssmClient.send(command);
+  // ... 25ms delay
 }
 ```
 
 **Optimized**:
+
 ```javascript
 async fetchServiceNames(serviceCodes) {
     const batchSize = 20;  // Higher batch for services
@@ -160,16 +164,18 @@ async fetchServiceNames(serviceCodes) {
 #### C. Parallel AZ Mapping
 
 **Current code (lines 243-265)**:
+
 ```javascript
 // Sequential: ~6 seconds for 120 AZs
 for (const azId of azIds) {
-    const command = new GetParameterCommand({ Name: parentRegionPath });
-    const response = await this.ssmClient.send(command);
-    // ... 25ms delay
+  const command = new GetParameterCommand({ Name: parentRegionPath });
+  const response = await this.ssmClient.send(command);
+  // ... 25ms delay
 }
 ```
 
 **Optimized**:
+
 ```javascript
 async mapAvailabilityZones(azIds) {
     const batchSize = 20;
@@ -235,6 +241,7 @@ const batchSize = 10; // Process 10 regions in parallel (safe for most AWS accou
 ```
 
 **Analysis**:
+
 - Current: 38 regions ÷ 5 = 8 batches × ~10s each = 80 seconds
 - Optimized: 38 regions ÷ 10 = 4 batches × ~10s each = 40 seconds
 
@@ -252,39 +259,40 @@ const batchSize = 10; // Process 10 regions in parallel (safe for most AWS accou
 **Optimized**: Tune for performance
 
 ```javascript
-const { SSMClient } = require('@aws-sdk/client-ssm');
-const { NodeHttpHandler } = require('@aws-sdk/node-http-handler');
-const https = require('https');
+const { SSMClient } = require("@aws-sdk/client-ssm");
+const { NodeHttpHandler } = require("@aws-sdk/node-http-handler");
+const https = require("https");
 
 // Create custom HTTP agent with connection pooling
 const agent = new https.Agent({
-    keepAlive: true,
-    keepAliveMsecs: 60000,
-    maxSockets: 50,        // Increased from default 50
-    maxFreeSockets: 10,
-    timeout: 30000
+  keepAlive: true,
+  keepAliveMsecs: 60000,
+  maxSockets: 50, // Increased from default 50
+  maxFreeSockets: 10,
+  timeout: 30000,
 });
 
 // Custom request handler
 const requestHandler = new NodeHttpHandler({
-    httpsAgent: agent,
-    connectionTimeout: 3000,
-    requestTimeout: 30000
+  httpsAgent: agent,
+  connectionTimeout: 3000,
+  requestTimeout: 30000,
 });
 
 class AWSDataFetcher {
-    constructor(region = 'us-east-1') {
-        this.ssmClient = new SSMClient({
-            region,
-            requestHandler,
-            maxAttempts: 3,          // Retry logic
-            retryMode: 'adaptive'    // Adaptive retry
-        });
-    }
+  constructor(region = "us-east-1") {
+    this.ssmClient = new SSMClient({
+      region,
+      requestHandler,
+      maxAttempts: 3, // Retry logic
+      retryMode: "adaptive", // Adaptive retry
+    });
+  }
 }
 ```
 
 **Benefits**:
+
 - Reuses TCP connections
 - Reduces connection overhead
 - Faster request/response times
@@ -304,13 +312,13 @@ With parallel batches, you're making ~10-20 requests simultaneously, which is we
 
 ```javascript
 // Current: 25ms delay between each request
-await new Promise(resolve => setTimeout(resolve, 25));
+await new Promise((resolve) => setTimeout(resolve, 25));
 
 // Optimized: Only delay between batches (not within batch)
 // No delay within Promise.all() batch
 // Only delay between batches:
 if (i + batchSize < items.length) {
-    await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise((resolve) => setTimeout(resolve, 100));
 }
 ```
 
@@ -436,15 +444,15 @@ async run(options = {}) {
 
 ## Performance Optimization Summary
 
-| Optimization | Current Time | Optimized Time | Savings |
-|--------------|--------------|----------------|---------|
-| Parallel region names | 3s | 0.5s | **2.5s** |
-| Parallel service names | 30s | 3s | **27s** |
-| Parallel AZ mapping | 6s | 1s | **5s** |
-| Service-by-region batch | 80s | 40s | **40s** |
-| Parallel regions+services | Sequential | Parallel | **10s** |
-| SSM client optimization | - | - | **3s** |
-| **TOTAL** | **~120s** | **~32s** | **~88s** |
+| Optimization              | Current Time | Optimized Time | Savings  |
+| ------------------------- | ------------ | -------------- | -------- |
+| Parallel region names     | 3s           | 0.5s           | **2.5s** |
+| Parallel service names    | 30s          | 3s             | **27s**  |
+| Parallel AZ mapping       | 6s           | 1s             | **5s**   |
+| Service-by-region batch   | 80s          | 40s            | **40s**  |
+| Parallel regions+services | Sequential   | Parallel       | **10s**  |
+| SSM client optimization   | -            | -              | **3s**   |
+| **TOTAL**                 | **~120s**    | **~32s**       | **~88s** |
 
 ---
 
@@ -495,11 +503,13 @@ With more aggressive optimization (batch=15, no delays):
 ### Phase 2: Parallel Name Fetching (2-3 hours)
 
 2. **Parallel region name fetching**
+
    - Refactor `discoverRegions()` method
    - Extract region name fetching logic
    - Implement batch parallel processing
 
 3. **Parallel service name fetching**
+
    - Refactor `discoverServices()` method
    - Extract service name fetching logic
    - Implement batch parallel processing
@@ -517,6 +527,7 @@ With more aggressive optimization (batch=15, no delays):
 ### Phase 3: Advanced Optimization (1-2 hours)
 
 5. **SSM client optimization**
+
    - Add custom HTTP agent
    - Configure connection pooling
    - Tune retry logic
@@ -781,7 +792,7 @@ async fetchServiceNamesParallel(serviceCodes) {
 const batchSize = 5;
 
 // To:
-const batchSize = 10;  // Or 15 if no throttling
+const batchSize = 10; // Or 15 if no throttling
 ```
 
 ---
@@ -789,40 +800,47 @@ const batchSize = 10;  // Or 15 if no throttling
 ### Change 4: Add SSM Client Optimization
 
 ```javascript
-const { SSMClient, GetParametersByPathCommand, GetParameterCommand } = require('@aws-sdk/client-ssm');
-const { NodeHttpHandler } = require('@aws-sdk/node-http-handler');
-const https = require('https');
+const {
+  SSMClient,
+  GetParametersByPathCommand,
+  GetParameterCommand,
+} = require("@aws-sdk/client-ssm");
+const { NodeHttpHandler } = require("@aws-sdk/node-http-handler");
+const https = require("https");
 
 class AWSDataFetcher {
-    constructor(region = 'us-east-1') {
-        // Create custom HTTPS agent with connection pooling
-        const httpsAgent = new https.Agent({
-            keepAlive: true,
-            keepAliveMsecs: 60000,
-            maxSockets: 50,
-            maxFreeSockets: 10,
-            timeout: 30000
-        });
+  constructor(region = "us-east-1") {
+    // Create custom HTTPS agent with connection pooling
+    const httpsAgent = new https.Agent({
+      keepAlive: true,
+      keepAliveMsecs: 60000,
+      maxSockets: 50,
+      maxFreeSockets: 10,
+      timeout: 30000,
+    });
 
-        // Custom request handler
-        const requestHandler = new NodeHttpHandler({
-            httpsAgent,
-            connectionTimeout: 3000,
-            requestTimeout: 30000
-        });
+    // Custom request handler
+    const requestHandler = new NodeHttpHandler({
+      httpsAgent,
+      connectionTimeout: 3000,
+      requestTimeout: 30000,
+    });
 
-        // Initialize SSM client with optimizations
-        this.ssmClient = new SSMClient({
-            region,
-            requestHandler,
-            maxAttempts: 3,
-            retryMode: 'adaptive'
-        });
+    // Initialize SSM client with optimizations
+    this.ssmClient = new SSMClient({
+      region,
+      requestHandler,
+      maxAttempts: 3,
+      retryMode: "adaptive",
+    });
 
-        this.outputDir = './output';
-        this.cacheFile = path.join(this.outputDir, '.cache-services-by-region.json');
-        this.cacheTTL = 24 * 60 * 60 * 1000;
-    }
+    this.outputDir = "./output";
+    this.cacheFile = path.join(
+      this.outputDir,
+      ".cache-services-by-region.json"
+    );
+    this.cacheTTL = 24 * 60 * 60 * 1000;
+  }
 }
 ```
 
@@ -881,17 +899,20 @@ npm run complete 2>&1 | grep -i throttl
 ## Risk Assessment
 
 ### Low Risk (Safe to implement)
+
 ✅ Increase batch size 5 → 10
 ✅ Parallel region name fetching (batch=10)
 ✅ Parallel AZ mapping (batch=20)
 ✅ SSM client optimization
 
 ### Medium Risk (Test carefully)
+
 ⚠️ Increase batch size 10 → 15
-⚠️ Parallel service name fetching (395 services)
+⚠️ Parallel service name fetching (394 services)
 ⚠️ Remove delays entirely
 
 ### Recommended Approach
+
 1. Start with batch size increase (5 → 10)
 2. Add parallel name fetching with conservative batch sizes
 3. Test thoroughly for throttling
@@ -907,23 +928,23 @@ Create a performance config section:
 ```javascript
 // config.js or at top of fetch-aws-data.js
 const PERFORMANCE_CONFIG = {
-    // Parallel batch sizes
-    regionNameBatchSize: 10,
-    serviceNameBatchSize: 20,
-    azMappingBatchSize: 20,
-    serviceByRegionBatchSize: 10,
+  // Parallel batch sizes
+  regionNameBatchSize: 10,
+  serviceNameBatchSize: 20,
+  azMappingBatchSize: 20,
+  serviceByRegionBatchSize: 10,
 
-    // Delays (milliseconds)
-    batchDelay: 100,  // Delay between batches
+  // Delays (milliseconds)
+  batchDelay: 100, // Delay between batches
 
-    // SSM client settings
-    maxSockets: 50,
-    connectionTimeout: 3000,
-    requestTimeout: 30000,
+  // SSM client settings
+  maxSockets: 50,
+  connectionTimeout: 3000,
+  requestTimeout: 30000,
 
-    // Retry settings
-    maxRetries: 3,
-    retryMode: 'adaptive'
+  // Retry settings
+  maxRetries: 3,
+  retryMode: "adaptive",
 };
 
 module.exports = PERFORMANCE_CONFIG;
@@ -936,6 +957,7 @@ This allows easy tuning without code changes.
 ## Expected Results
 
 ### Before Optimization
+
 ```
 Region Discovery:       12-13 seconds
 Service Discovery:      30-35 seconds
@@ -944,6 +966,7 @@ Total:                  ~120 seconds (2 minutes)
 ```
 
 ### After Phase 1 (Batch size only)
+
 ```
 Region Discovery:       12-13 seconds
 Service Discovery:      30-35 seconds
@@ -952,6 +975,7 @@ Total:                  ~85 seconds (42% faster)
 ```
 
 ### After Phase 2 (Parallel names)
+
 ```
 Region Discovery:       5-6 seconds
 Service Discovery:      7-8 seconds
@@ -960,6 +984,7 @@ Total:                  ~52 seconds (57% faster)
 ```
 
 ### After Phase 3 (All optimizations)
+
 ```
 Region+Service (parallel): 8 seconds
 Service-by-Region:         40 seconds
@@ -973,12 +998,14 @@ Total:                     ~48 seconds (60% faster)
 **Achievable target: 45-60 seconds** (from current 120 seconds)
 
 **Highest impact optimizations**:
+
 1. Parallel service name fetching: **-27 seconds**
 2. Increase batch size (10): **-40 seconds**
 3. Parallel regions+services: **-10 seconds**
 4. Parallel AZ mapping: **-5 seconds**
 
 **Recommended implementation order**:
+
 1. ✅ Increase batch size (5 min, -40s)
 2. ✅ Parallel name fetching (2-3 hours, -34s)
 3. ✅ SSM client optimization (1 hour, -3s)

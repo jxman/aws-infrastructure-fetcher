@@ -9,12 +9,14 @@
 #### New Features
 
 1. **CloudFront Distribution**
+
    - Automatic distribution to `www.aws-services.synepho.com/data/`
    - Public URLs: `https://aws-services.synepho.com/data/{file}.json`
    - Cache-Control: `public, max-age=300` (5 minutes)
    - Dual storage: source bucket (backup) + distribution bucket (public access)
 
 2. **Automatic Cache Invalidation**
+
    - CloudFront cache invalidated after each data update
    - Ensures immediate data freshness at edge locations worldwide
    - Invalidation ID tracked in Lambda response and SNS notifications
@@ -27,16 +29,19 @@
 #### Implementation Details
 
 1. **S3 Storage Layer** (`src/storage/s3-storage.js`)
+
    - Added `distributeToWebsite()` method - copies files to distribution bucket
    - Added `invalidateCloudFrontCache()` method - invalidates CloudFront cache
    - Non-critical operations: errors logged but don't fail Lambda execution
 
 2. **Lambda Handler** (`src/lambda/handler.js`)
+
    - Calls distribution after successful data fetch
    - Triggers cache invalidation after successful distribution
    - Includes distribution results in response and SNS notifications
 
 3. **Infrastructure** (`template.yaml`)
+
    - Added `DistributionBucketName` parameter (default: `www.aws-services.synepho.com`)
    - Added `DistributionKeyPrefix` parameter (default: `data`)
    - Added `CloudFrontDistributionId` parameter (default: `EBTYLWOK3WVOK`)
@@ -49,14 +54,17 @@
 #### Benefits
 
 1. **Global Performance**
+
    - Edge caching reduces latency for international users
    - CloudFront CDN distribution across 450+ edge locations
 
 2. **Cost Protection**
+
    - Reduces S3 GET requests by ~95% through edge caching
    - CloudFront caching protects against traffic spikes
 
 3. **Immediate Updates**
+
    - Automatic cache invalidation ensures fresh data
    - No waiting for TTL expiration (previously 5-minute delay)
 
@@ -67,19 +75,23 @@
 #### Public Data Access
 
 **Recommended (CloudFront-backed)**:
+
 ```javascript
-const dataUrl = 'https://aws-services.synepho.com/data/complete-data.json';
+const dataUrl = "https://aws-services.synepho.com/data/complete-data.json";
 ```
 
 **Not Recommended (Direct S3)**:
+
 ```javascript
 // Avoid - higher costs, no edge caching
-const dataUrl = 'https://aws-data-fetcher-output.s3.amazonaws.com/aws-data/complete-data.json';
+const dataUrl =
+  "https://aws-data-fetcher-output.s3.amazonaws.com/aws-data/complete-data.json";
 ```
 
 #### Configuration
 
 Distribution is enabled by default. To disable:
+
 ```bash
 sam deploy --parameter-overrides DistributionBucketName=""
 ```
@@ -105,12 +117,14 @@ sam deploy --parameter-overrides DistributionBucketName=""
 #### Runtime Update
 
 1. **Node.js 20.x Runtime**
+
    - Updated Lambda function runtime from `nodejs18.x` to `nodejs20.x`
    - Updated package.json engine requirement from `>=18.0.0` to `>=20.0.0`
    - Node.js 20.x is LTS (Long Term Support) until April 2026
    - Addresses AWS deprecation warning for Node.js 18.x
 
 2. **Deployment Verification**
+
    - Successfully deployed via SAM
    - Tested Lambda invocation with Node.js 20.x runtime
    - Confirmed full functionality (regions fetch, services discovery, S3 storage, SNS notifications)
@@ -125,11 +139,13 @@ sam deploy --parameter-overrides DistributionBucketName=""
 #### Benefits
 
 1. **Extended Support**
+
    - Node.js 20.x supported until April 2026
    - No more deprecation warnings from AWS
    - Future-proof for the next 1-2 years
 
 2. **Performance Improvements**
+
    - Native Node.js 20.x performance enhancements
    - Improved security features
    - Latest AWS SDK compatibility
@@ -171,6 +187,7 @@ aws lambda get-function-configuration \
 #### Major Features
 
 1. **AWS Lambda Function**
+
    - Serverless execution with 180-second timeout and 512MB memory
    - Automated daily execution via EventBridge scheduler (2 AM UTC by default)
    - Environment-based configuration for flexible deployment
@@ -178,6 +195,7 @@ aws lambda get-function-configuration \
    - **Impact**: Zero server maintenance, pay-per-execution pricing (~$0.04/month)
 
 2. **SAM/CloudFormation Infrastructure**
+
    - Complete Infrastructure as Code deployment
    - Single-command deployment: `sam deploy --guided`
    - Parameterized configuration (batch size, pagination delay, notification email)
@@ -185,6 +203,7 @@ aws lambda get-function-configuration \
    - **Impact**: Reproducible deployments, version-controlled infrastructure
 
 3. **S3 Storage Integration**
+
    - Automated S3 bucket creation with versioning enabled
    - Data files stored in S3 with organized folder structure
    - 24-hour cache stored in S3 for cross-execution persistence
@@ -193,6 +212,7 @@ aws lambda get-function-configuration \
    - **Impact**: Persistent storage, versioned data history, automated cleanup
 
 4. **SNS Email Notifications**
+
    - Success notifications with execution summary and S3 paths
    - Error notifications with stack traces and CloudWatch log links
    - Optional email subscription via CloudFormation parameter
@@ -200,6 +220,7 @@ aws lambda get-function-configuration \
    - **Impact**: Immediate visibility into execution status
 
 5. **CloudWatch Monitoring & Alarms**
+
    - Automatic log group creation with 7-day retention
    - Error alarm: triggers on any Lambda error
    - Duration alarm: triggers if execution exceeds 120 seconds
@@ -207,6 +228,7 @@ aws lambda get-function-configuration \
    - **Impact**: Proactive monitoring, immediate error detection
 
 6. **Storage Abstraction Pattern**
+
    - Factory pattern for storage selection (local vs S3)
    - `STORAGE_TYPE` environment variable controls storage backend
    - `StorageInterface` defines common contract
@@ -229,6 +251,7 @@ aws lambda get-function-configuration \
 #### Technical Implementation
 
 **New Files:**
+
 - `template.yaml`: SAM/CloudFormation infrastructure definition
 - `lambda/handler.js`: Lambda function entry point with SNS notification logic
 - `lib/storage/StorageInterface.js`: Abstract storage interface
@@ -239,6 +262,7 @@ aws lambda get-function-configuration \
 - `docs/NOTIFICATIONS_SETUP.md`: SNS email configuration guide
 
 **Modified Files:**
+
 - `fetch-aws-data.js`: Updated to use storage factory pattern
 - `config.js`: Added S3 and environment variable configuration
 - `package.json`: Added `@aws-sdk/client-s3` and `@aws-sdk/client-sns` dependencies
@@ -246,18 +270,21 @@ aws lambda get-function-configuration \
 #### Infrastructure Resources Created
 
 **S3 Resources:**
+
 - S3 bucket with versioning enabled
 - Lifecycle rules for automatic cleanup
 - Public access blocking for security
 - Tags for project identification
 
 **Lambda Resources:**
+
 - Lambda function with nodejs20.x runtime
 - IAM role with least-privilege permissions (SSM read, S3 full, SNS publish)
 - CloudWatch log group with 7-day retention
 - EventBridge schedule rule for daily execution
 
 **Monitoring Resources:**
+
 - CloudWatch error alarm (threshold: 1 error)
 - CloudWatch duration alarm (threshold: 120 seconds)
 - SNS topic for notifications
@@ -285,13 +312,13 @@ CloudWatch Logs
 
 #### Performance Characteristics
 
-| Metric | Without Cache | With Cache | Cost Impact |
-|--------|---------------|------------|-------------|
-| Execution time | ~1m 49s | ~13s | Lambda charges |
-| SSM API calls | ~2,300 | ~160 | Minimal (under free tier) |
-| S3 operations | 3 writes | 3 reads + 3 writes | Minimal (under free tier) |
-| Lambda memory | 512MB | 512MB | $0.0000000083/ms |
-| Total monthly cost | - | - | ~$0.04/month |
+| Metric             | Without Cache | With Cache         | Cost Impact               |
+| ------------------ | ------------- | ------------------ | ------------------------- |
+| Execution time     | ~1m 49s       | ~13s               | Lambda charges            |
+| SSM API calls      | ~2,300        | ~160               | Minimal (under free tier) |
+| S3 operations      | 3 writes      | 3 reads + 3 writes | Minimal (under free tier) |
+| Lambda memory      | 512MB         | 512MB              | $0.0000000083/ms          |
+| Total monthly cost | -             | -                  | ~$0.04/month              |
 
 #### Deployment Process
 
@@ -330,7 +357,7 @@ aws lambda invoke \
 s3://aws-data-fetcher-output/
 └── aws-data/
     ├── regions.json           # 38 regions with AZ counts
-    ├── services.json          # 395 services with names
+    ├── services.json          # 394 services with names
     ├── complete-data.json     # Full dataset with service mapping
     ├── .cache-services-by-region.json  # 24-hour cache
     └── history/               # Versioned files (30-day retention)
@@ -339,6 +366,7 @@ s3://aws-data-fetcher-output/
 #### SNS Notification Example
 
 **Success Notification:**
+
 ```
 Subject: ✅ AWS Data Fetcher Success - 13s
 
@@ -346,7 +374,7 @@ AWS Data Fetcher completed successfully!
 
 Summary:
 - Regions: 38
-- Services: 395
+- Services: 394
 - Duration: 13s
 - Request ID: abc123-def456
 
@@ -363,6 +391,7 @@ Service Mapping:
 ```
 
 **Error Notification:**
+
 ```
 Subject: ❌ AWS Data Fetcher Error - AccessDeniedException
 
@@ -385,12 +414,14 @@ Please check CloudWatch Logs for more details:
 #### Benefits
 
 1. **Zero Server Management**
+
    - No EC2 instances to maintain
    - Automatic scaling and high availability
    - AWS manages runtime and patching
    - **Impact**: Reduced operational overhead
 
 2. **Cost-Effective**
+
    - Pay-per-execution pricing
    - ~$0.04/month for daily execution
    - Minimal S3 storage costs
@@ -398,18 +429,21 @@ Please check CloudWatch Logs for more details:
    - **Impact**: 99% cost reduction vs EC2
 
 3. **Automated Execution**
+
    - Daily scheduled runs (configurable)
    - No manual intervention required
    - Automatic data freshness
    - **Impact**: Always up-to-date infrastructure data
 
 4. **Immediate Error Visibility**
+
    - Email notifications for failures
    - CloudWatch alarms for anomalies
    - Detailed error context in notifications
    - **Impact**: Fast problem resolution
 
 5. **Infrastructure as Code**
+
    - Version-controlled infrastructure
    - Reproducible deployments
    - Easy parameter tuning
@@ -425,6 +459,7 @@ Please check CloudWatch Logs for more details:
 #### IAM Permissions Required
 
 **SSM Permissions:**
+
 ```yaml
 - ssm:GetParameter
 - ssm:GetParameters
@@ -433,6 +468,7 @@ Resource: arn:aws:ssm:*::parameter/aws/service/global-infrastructure/*
 ```
 
 **S3 Permissions:**
+
 ```yaml
 - s3:GetObject
 - s3:PutObject
@@ -442,6 +478,7 @@ Resource: [S3 bucket and objects]
 ```
 
 **SNS Permissions:**
+
 ```yaml
 - sns:Publish
 Resource: [SNS topic ARN]
@@ -450,8 +487,9 @@ Resource: [SNS topic ARN]
 #### Configuration Parameters
 
 **CloudFormation Parameters:**
+
 - `S3BucketName`: Bucket name (default: aws-data-fetcher-output)
-- `ScheduleExpression`: Cron expression (default: cron(0 2 * * ? *))
+- `ScheduleExpression`: Cron expression (default: cron(0 2 \* _ ? _))
 - `BatchSize`: Parallel processing (default: 10, range: 5-20)
 - `PaginationDelay`: SSM delay in ms (default: 40, range: 20-100)
 - `NotificationEmail`: Email for notifications (optional)
@@ -468,18 +506,21 @@ Resource: [SNS topic ARN]
 #### Error Handling & Recovery
 
 1. **SSM API Throttling**
+
    - Exponential backoff retry (up to 5 attempts)
    - Adaptive pagination delays
    - Per-region error isolation
    - **Impact**: Robust API handling
 
 2. **S3 Operation Failures**
+
    - Graceful error messages
    - Stack trace included in notifications
    - CloudWatch logs for debugging
    - **Impact**: Clear failure visibility
 
 3. **Lambda Timeout Protection**
+
    - 180-second timeout (3 minutes)
    - Duration alarm at 120 seconds
    - Notification if execution time anomalous
@@ -494,12 +535,14 @@ Resource: [SNS topic ARN]
 #### Migration from CLI to Lambda
 
 **For existing CLI users:**
+
 1. Code continues to work locally (STORAGE_TYPE=local)
 2. Lambda deployment adds automation without removing CLI capability
 3. Same data structure in both local and S3 storage
 4. Cache works in both environments
 
 **Deployment steps:**
+
 ```bash
 # 1. Test CLI still works
 npm run complete
@@ -531,12 +574,14 @@ Each region now includes launch date and blog URL information fetched from the o
 #### Implementation Details
 
 **Data Source:**
+
 - Fetches data from AWS RSS feed: `https://docs.aws.amazon.com/global-infrastructure/latest/regions/regions.rss`
 - Parses RSS XML to extract launch dates and blog post URLs
 - Handles CloudFront security with proper User-Agent headers
 - Gracefully handles missing data for isolated partitions (China, GovCloud)
 
 **Output Structure:**
+
 ```json
 {
   "code": "us-west-2",
@@ -548,10 +593,12 @@ Each region now includes launch date and blog URL information fetched from the o
 ```
 
 **Coverage:**
+
 - 34 regions have launch data from RSS feed
 - 4 regions show `null` (China and GovCloud regions not in public feed)
 
 **Performance Impact:**
+
 - Adds ~100-200ms for single RSS feed fetch
 - Minimal impact on overall execution time
 - No additional API calls to AWS services
@@ -574,11 +621,13 @@ Each region in the output now includes an `availabilityZones` field showing the 
 #### Implementation Details
 
 **Data Source:**
+
 - Fetches all 120+ AZ IDs from `/aws/service/global-infrastructure/availability-zones`
 - Maps each AZ to its parent region using `/aws/service/global-infrastructure/availability-zones/{az-id}/parent-region`
 - Counts AZs per region and includes in region data
 
 **Output Structure:**
+
 ```json
 {
   "count": 38,
@@ -598,6 +647,7 @@ Each region in the output now includes an `availabilityZones` field showing the 
 ```
 
 **Console Output:**
+
 ```
 📍 Fetching availability zones...
 📍 Found 120 availability zones
@@ -608,11 +658,11 @@ Each region in the output now includes an `availabilityZones` field showing the 
 
 #### Performance Impact
 
-| Metric | Before | After | Change |
-|--------|--------|-------|--------|
-| Regions fetch time | ~6-8 seconds | ~12-13 seconds | +6 seconds |
-| API calls | ~38 | ~158 (38 regions + 120 AZs) | +120 calls |
-| Data completeness | Region names | Region names + AZ counts | Enhanced |
+| Metric             | Before       | After                       | Change     |
+| ------------------ | ------------ | --------------------------- | ---------- |
+| Regions fetch time | ~6-8 seconds | ~12-13 seconds              | +6 seconds |
+| API calls          | ~38          | ~158 (38 regions + 120 AZs) | +120 calls |
+| Data completeness  | Region names | Region names + AZ counts    | Enhanced   |
 
 **Trade-off Justification**: The ~6 second increase provides valuable infrastructure planning data while maintaining fast execution (~12 seconds for complete region discovery).
 
@@ -636,33 +686,38 @@ Each region in the output now includes an `availabilityZones` field showing the 
 
 #### Major Architecture Change
 
-Previously, service names were hardcoded in `aws-service-names.js` (395 manual entries). Now, service names are fetched dynamically from SSM, making the tool truly zero-maintenance.
+Previously, service names were hardcoded in `aws-service-names.js` (394 manual entries). Now, service names are fetched dynamically from SSM, making the tool truly zero-maintenance.
 
 #### What Changed
 
 **Code Changes:**
+
 - Modified `discoverServices()` to fetch service names from SSM Parameter Store
 - Added dynamic fetching from `/aws/service/global-infrastructure/services/{code}/longName`
 - Consistent architecture: both regions and services use SSM as single source
-- Progress indicators: shows "Fetched 10/395 service names..." during execution
+- Progress indicators: shows "Fetched 10/394 service names..." during execution
 - Removed unmapped service detection logic (no longer needed)
 - Removed `unmapped-services.json` output file generation
 - Removed `aws-service-names.js` hardcoded mapping file
 
 **Benefits:**
+
 1. **Zero Maintenance Required**
+
    - No manual tracking of new AWS services
    - Service names automatically up-to-date when AWS adds new services
    - No need to update hardcoded mapping files
    - **Impact**: Fully automatic, always current
 
 2. **Official Names from AWS**
+
    - Uses AWS's authoritative SSM Parameter Store
    - Exact service names as defined by AWS
    - No risk of outdated or incorrect names
    - **Impact**: 100% accuracy
 
 3. **Consistent Architecture**
+
    - Regions: fetched from SSM
    - Services: fetched from SSM
    - Service names: fetched from SSM (new!)
@@ -677,14 +732,15 @@ Previously, service names were hardcoded in `aws-service-names.js` (395 manual e
 
 #### Performance Impact
 
-| Metric | Before (v1.3.0) | After (v1.4.0) | Change |
-|--------|-----------------|----------------|--------|
-| Services fetch time | ~4 seconds | ~30-35 seconds | Slower but automatic |
-| API calls | 0 (hardcoded) | 395 (1 per service) | More API calls |
-| Maintenance effort | Manual updates | Zero | Eliminated |
-| Data accuracy | Risk of stale data | Always current | Guaranteed fresh |
+| Metric              | Before (v1.3.0)    | After (v1.4.0)      | Change               |
+| ------------------- | ------------------ | ------------------- | -------------------- |
+| Services fetch time | ~4 seconds         | ~30-35 seconds      | Slower but automatic |
+| API calls           | 0 (hardcoded)      | 394 (1 per service) | More API calls       |
+| Maintenance effort  | Manual updates     | Zero                | Eliminated           |
+| Data accuracy       | Risk of stale data | Always current      | Guaranteed fresh     |
 
 **Trade-off Justification**: The ~30 second increase is acceptable because:
+
 - Eliminates manual maintenance entirely
 - Ensures names are always official and current
 - Total runtime still under 40 seconds for complete fetch
@@ -707,9 +763,10 @@ Previously, service names were hardcoded in `aws-service-names.js` (395 manual e
 #### Output Changes
 
 **services.json** now contains dynamically fetched names:
+
 ```json
 {
-  "count": 395,
+  "count": 394,
   "services": [
     {
       "code": "ec2",
@@ -726,18 +783,20 @@ Previously, service names were hardcoded in `aws-service-names.js` (395 manual e
 ```
 
 **Console Output** shows progress:
+
 ```
-✅ Discovered 395 services from SSM
+✅ Discovered 394 services from SSM
    Fetching service names from SSM...
-   📋 Fetched 10/395 service names...
-   📋 Fetched 20/395 service names...
+   📋 Fetched 10/394 service names...
+   📋 Fetched 20/394 service names...
    ...
-   ✅ Fetched 395 service names from SSM
+   ✅ Fetched 394 service names from SSM
 ```
 
 #### Files Affected
 
 **Modified:**
+
 - `fetch-aws-data.js`: Updated `discoverServices()` method
 - `README.md`: Documented dynamic fetching and zero maintenance
 - `CLAUDE.md`: Updated architecture documentation
@@ -745,6 +804,7 @@ Previously, service names were hardcoded in `aws-service-names.js` (395 manual e
 - `package.json`: Version bumped to 1.4.0
 
 **Removed:**
+
 - `aws-service-names.js`: Hardcoded service name mapping (no longer needed)
 - Unmapped service tracking logic
 - `unmapped-services.json` output file generation
@@ -752,13 +812,14 @@ Previously, service names were hardcoded in `aws-service-names.js` (395 manual e
 #### Discovery Credit
 
 This improvement was discovered by testing the SSM Parameter Store path:
+
 ```bash
 aws ssm get-parameter \
   --name /aws/service/global-infrastructure/services/ec2/longName \
   --query "Parameter.Value" --output text
 ```
 
-The tool now uses this same pattern for all 395 services, ensuring always-current, official AWS service names.
+The tool now uses this same pattern for all 394 services, ensuring always-current, official AWS service names.
 
 ## [1.3.0] - 2025-10-11
 
@@ -769,18 +830,21 @@ The tool now uses this same pattern for all 395 services, ensuring always-curren
 #### Simplification Benefits
 
 1. **Single Authoritative Source**
+
    - SSM Parameter Store provides all 38 regions (commercial + China + GovCloud)
    - No need for dual-source comparison logic
    - SSM is AWS's official global infrastructure metadata source
    - **Impact**: Simpler, more maintainable codebase
 
 2. **Reduced Dependencies**
+
    - Removed `@aws-sdk/client-ec2` dependency
    - Only one AWS SDK client needed
    - Smaller node_modules footprint
    - **Impact**: Faster npm install, reduced package size
 
 3. **Cleaner Data Structure**
+
    - No more SSM vs EC2 comparison object
    - Direct region list from authoritative source
    - Simpler JSON output structure
@@ -795,6 +859,7 @@ The tool now uses this same pattern for all 395 services, ensuring always-curren
 #### What Changed
 
 **Code Changes:**
+
 - Removed EC2Client import and initialization
 - Removed `getEC2Regions()` method
 - Removed `compareRegions()` method
@@ -802,16 +867,19 @@ The tool now uses this same pattern for all 395 services, ensuring always-curren
 - Updated `regions.json` structure (no comparison object)
 
 **Documentation Updates:**
+
 - Updated README.md to reflect SSM-only approach
 - Updated CLAUDE.md to remove dual-source methodology
 - Removed all EC2 API references
 
 **Dependencies:**
+
 - Removed `@aws-sdk/client-ec2` from package.json
 
 #### regions.json Structure (Before vs After)
 
 **Before (v1.2.0)**:
+
 ```json
 {
   "ssm": { "count": 38, "regions": [...] },
@@ -821,6 +889,7 @@ The tool now uses this same pattern for all 395 services, ensuring always-curren
 ```
 
 **After (v1.3.0)**:
+
 ```json
 {
   "count": 38,
@@ -837,6 +906,7 @@ The tool now uses this same pattern for all 395 services, ensuring always-curren
 #### New Features
 
 1. **Runtime Display**
+
    - Shows total execution time at end of script
    - Format: "Runtime: 45.23s" or "Runtime: 3m 15s"
    - **Impact**: Better performance monitoring
@@ -857,12 +927,14 @@ The tool now uses this same pattern for all 395 services, ensuring always-curren
 #### Simplification Benefits
 
 1. **Single Source of Truth**
+
    - All data now lives in `complete-data.json` only
    - No more duplicate files with identical data
    - Clearer architecture and easier maintenance
    - **Impact**: Simpler codebase, less confusion
 
 2. **Reduced Disk Usage**
+
    - Saves ~350KB per run by eliminating duplicate file
    - Only one file to backup/archive instead of two
    - **Impact**: 50% reduction in output file count for service mapping
@@ -873,9 +945,11 @@ The tool now uses this same pattern for all 395 services, ensuring always-curren
    - **Impact**: Flexibility without redundancy
 
 #### Files Removed
+
 - `services-by-region.json` - data now only in `complete-data.json`
 
 #### Files Retained
+
 - `complete-data.json` - **single source of truth** for all data
 - `regions.json` - lightweight region comparison
 - `services.json` - lightweight service list
@@ -888,18 +962,21 @@ The tool now uses this same pattern for all 395 services, ensuring always-curren
 #### Intelligent 24-Hour Cache
 
 1. **Time-Based Caching**
+
    - Automatic caching of service-by-region data
    - 24-hour TTL (Time To Live) per region
    - Cache file: `.cache-services-by-region.json` in output directory
    - **Impact**: Subsequent runs complete in <5 seconds instead of 3-5 minutes
 
 2. **Smart Cache Validation**
+
    - Per-region cache validation (not all-or-nothing)
    - Automatically detects and refreshes stale regions
    - Partial cache hits supported (mix of cached and fresh data)
    - **Impact**: Optimal balance between speed and data freshness
 
 3. **Force Refresh Option**
+
    - New CLI flag: `--force-refresh` / `-f`
    - Bypass cache entirely when needed
    - Useful after AWS service announcements
@@ -920,12 +997,12 @@ The tool now uses this same pattern for all 395 services, ensuring always-curren
 
 #### Performance Impact
 
-| Scenario | Before | After | Improvement |
-|----------|--------|-------|-------------|
-| First run (no cache) | 3-5 min | 3-5 min | Same |
-| Second run (fresh cache) | 3-5 min | <5 sec | 10-50x faster |
-| Partial cache (10 stale) | 3-5 min | ~1 min | 3-5x faster |
-| Force refresh | 3-5 min | 3-5 min | Same (bypasses cache) |
+| Scenario                 | Before  | After   | Improvement           |
+| ------------------------ | ------- | ------- | --------------------- |
+| First run (no cache)     | 3-5 min | 3-5 min | Same                  |
+| Second run (fresh cache) | 3-5 min | <5 sec  | 10-50x faster         |
+| Partial cache (10 stale) | 3-5 min | ~1 min  | 3-5x faster           |
+| Force refresh            | 3-5 min | 3-5 min | Same (bypasses cache) |
 
 #### Usage Examples
 
@@ -967,18 +1044,21 @@ node fetch-aws-data.js --include-service-mapping --force-refresh
 #### Optimizations Implemented
 
 1. **Parallel Batch Processing**
+
    - Changed from sequential region processing to parallel batches
    - Batch size: 5 regions processed simultaneously (conservative for rate limit safety)
    - Uses `Promise.all()` to process multiple regions concurrently
    - **Impact**: ~4-5x speedup
 
 2. **Adaptive Throttling with Retry Logic**
+
    - Base delay: 50ms between paginated requests (increased from 25ms for stability)
    - Exponential backoff retry: Automatically retries rate-limited requests
    - Adaptive delays: Increases delay if retries are needed
    - **Impact**: Robust rate limit handling with minimal slowdown
 
 3. **Real-time Progress Tracking**
+
    - Added batch progress indicators (Batch 1/8, 2/8, etc.)
    - Displays ETA (Estimated Time Remaining) for each region
    - Shows average processing time per region
@@ -1000,13 +1080,13 @@ node fetch-aws-data.js --include-service-mapping --force-refresh
 
 #### Performance Metrics
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Total execution time | ~15 min | ~3-5 min | 4-5x faster |
-| Throttle delay | 100ms | 50ms (adaptive) | More reliable |
-| Region processing | Sequential | Parallel (batch=5) | 5x faster |
-| User feedback | Basic counter | ETA + batch progress | Enhanced |
-| Error handling | None | Exponential backoff | Robust |
+| Metric               | Before        | After                | Improvement   |
+| -------------------- | ------------- | -------------------- | ------------- |
+| Total execution time | ~15 min       | ~3-5 min             | 4-5x faster   |
+| Throttle delay       | 100ms         | 50ms (adaptive)      | More reliable |
+| Region processing    | Sequential    | Parallel (batch=5)   | 5x faster     |
+| User feedback        | Basic counter | ETA + batch progress | Enhanced      |
+| Error handling       | None          | Exponential backoff  | Robust        |
 
 ### Changed
 
@@ -1047,7 +1127,7 @@ node fetch-aws-data.js --include-service-mapping --force-refresh
 
 ### Technical Details
 
-- **Discovery**: Fetches 395 AWS services from SSM Parameter Store
+- **Discovery**: Fetches 394 AWS services from SSM Parameter Store
 - **Regions**: Processes all 38 regions (34 commercial + 4 specialized)
 - **Per-Region Data**: Queries `/aws/service/global-infrastructure/regions/{region}/services` path
 - **Output Size**: `complete-data.json` increases from ~12KB to ~500KB+ with service mapping
@@ -1067,7 +1147,7 @@ node fetch-aws-data.js --include-service-mapping --force-refresh
   },
   "summary": {
     "totalRegions": 38,
-    "totalServices": 395,
+    "totalServices": 394,
     "averageServicesPerRegion": number,
     "timestamp": "ISO-8601"
   }

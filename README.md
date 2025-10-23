@@ -13,7 +13,7 @@ This project deploys a serverless Lambda function that automatically fetches and
 ### What It Does
 
 - **Discovers 38 AWS Regions**: All commercial, China, and GovCloud regions
-- **Catalogs 395+ AWS Services**: Complete service inventory from SSM
+- **Catalogs 394+ AWS Services**: Complete service inventory from SSM
 - **Maps Service Availability**: Which services are available in each region
 - **S3 Storage**: All data and cache files stored in S3
 - **SNS Notifications**: Email alerts for successful runs and errors
@@ -116,7 +116,7 @@ sam logs --name DataFetcherFunction --stack-name sam-aws-services-fetch --tail
                │                       │            └─────────────────┘
                │                       │
                ▼                       ▼
-    38 Regions + 395 Services    ┌─────────────────────────────────┐
+    38 Regions + 394 Services    ┌─────────────────────────────────┐
                                   │  S3 Files:                      │
                                   │  - regions.json                 │
                                   │  - services.json                │
@@ -131,7 +131,7 @@ sam logs --name DataFetcherFunction --stack-name sam-aws-services-fetch --tail
 ### Core Functionality
 
 - **38 AWS Regions Discovered**: Commercial (34) + China (2) + GovCloud (2)
-- **395+ AWS Services Cataloged**: Complete service inventory
+- **394+ AWS Services Cataloged**: Complete service inventory
 - **Service-by-Region Mapping**: 8,637 service instances across all regions
 - **Availability Zone Counts**: Infrastructure planning data
 - **Region Launch Dates**: Historical context and blog URLs
@@ -164,7 +164,7 @@ All data is stored in S3 with the following structure:
 ```
 s3://your-bucket-name/aws-data/
 ├── regions.json (9.4 KiB) - 38 regions with metadata
-├── services.json (31.4 KiB) - 395 services with official names
+├── services.json (31.4 KiB) - 394 services with official names
 ├── complete-data.json (233.6 KiB) - Combined dataset (single source of truth)
 ├── cache/
 │   └── services-by-region.json (197.7 KiB) - 24-hour cache
@@ -213,13 +213,15 @@ The `complete-data.json` file is the **single source of truth** containing:
   },
   "regions": {
     "count": 38,
-    "regions": [/* full region objects */],
+    "regions": [
+      /* full region objects */
+    ],
     "source": "ssm",
     "timestamp": "2025-10-12T22:48:13.345Z"
   },
   "services": {
-    "count": 395,
-    "services": ["accessanalyzer", "account", "acm", /* ... */],
+    "count": 394,
+    "services": ["accessanalyzer", "account", "acm" /* ... */],
     "source": "ssm",
     "timestamp": "2025-10-12T22:48:24.178Z"
   },
@@ -228,20 +230,20 @@ The `complete-data.json` file is the **single source of truth** containing:
       "us-east-1": {
         "regionCode": "us-east-1",
         "serviceCount": 388,
-        "services": ["accessanalyzer", "account", "acm", /* ... */],
+        "services": ["accessanalyzer", "account", "acm" /* ... */],
         "lastFetched": "2025-10-12T21:08:08.493Z"
       },
       "eu-west-3": {
         "regionCode": "eu-west-3",
         "serviceCount": 248,
-        "services": ["accessanalyzer", "account", "acm", /* ... */],
+        "services": ["accessanalyzer", "account", "acm" /* ... */],
         "lastFetched": "2025-10-12T21:08:15.234Z"
       }
       /* ... all 38 regions ... */
     },
     "summary": {
       "totalRegions": 38,
-      "totalServices": 395,
+      "totalServices": 394,
       "averageServicesPerRegion": 227,
       "cachedRegions": 38,
       "fetchedRegions": 0,
@@ -292,10 +294,12 @@ Generated data files are automatically distributed to two locations for differen
 Applications should fetch data from the CloudFront distribution for optimal performance:
 
 **Recommended (CloudFront-backed, globally cached)**:
+
 ```javascript
-const completeDataUrl = 'https://aws-services.synepho.com/data/complete-data.json';
-const regionsUrl = 'https://aws-services.synepho.com/data/regions.json';
-const servicesUrl = 'https://aws-services.synepho.com/data/services.json';
+const completeDataUrl =
+  "https://aws-services.synepho.com/data/complete-data.json";
+const regionsUrl = "https://aws-services.synepho.com/data/regions.json";
+const servicesUrl = "https://aws-services.synepho.com/data/services.json";
 
 // Fetch with standard HTTP client
 const response = await fetch(completeDataUrl);
@@ -303,14 +307,17 @@ const data = await response.json();
 ```
 
 **Not Recommended (Direct S3, higher costs)**:
+
 ```javascript
 // Avoid this - higher costs, no edge caching
-const directS3Url = 'https://aws-data-fetcher-output.s3.amazonaws.com/aws-data/complete-data.json';
+const directS3Url =
+  "https://aws-data-fetcher-output.s3.amazonaws.com/aws-data/complete-data.json";
 ```
 
 ### Distribution Process
 
 The Lambda function automatically:
+
 1. Fetches AWS infrastructure data from SSM Parameter Store
 2. Saves to source bucket (`aws-data-fetcher-output`)
 3. **Copies to distribution bucket** (`www.aws-services.synepho.com/data/`)
@@ -334,6 +341,7 @@ sam deploy --parameter-overrides DistributionBucketName=""
 ```
 
 Or update `samconfig.toml`:
+
 ```toml
 parameter_overrides = "... DistributionBucketName=\"\" ..."
 ```
@@ -424,17 +432,20 @@ aws sns subscribe \
 ### What You'll Receive
 
 **✅ Success Notifications** (after every run):
+
 - Regions and services discovered
 - Execution duration
 - S3 file paths
 - Cache hit statistics
 
 **❌ Error Notifications** (on failures):
+
 - Error message and type
 - Stack trace
 - Direct CloudWatch Logs link
 
 **⚠️ CloudWatch Alarms**:
+
 - Lambda execution errors
 - Duration exceeding 2 minutes
 
@@ -460,6 +471,7 @@ sam logs --name DataFetcherFunction --filter 'ERROR'
 Two alarms are automatically configured:
 
 1. **Error Alarm** (`aws-data-fetcher-errors`)
+
    - Triggers on any Lambda error
    - Sends SNS notification
 
@@ -485,11 +497,11 @@ aws cloudformation describe-stacks \
 
 Edit the SAM parameters in `template.yaml` or via deployment:
 
-| Parameter | Default | Description | Impact |
-|-----------|---------|-------------|--------|
-| `BatchSize` | 10 | Parallel region batch size | 10=conservative (1m 49s), 12=balanced (1m 30s), 15=aggressive (1m 15s) |
-| `PaginationDelay` | 40ms | Delay between SSM requests | Lower=faster but higher throttle risk |
-| `ScheduleExpression` | `cron(0 2 * * ? *)` | EventBridge cron schedule | Adjust timing as needed |
+| Parameter            | Default             | Description                | Impact                                                                 |
+| -------------------- | ------------------- | -------------------------- | ---------------------------------------------------------------------- |
+| `BatchSize`          | 10                  | Parallel region batch size | 10=conservative (1m 49s), 12=balanced (1m 30s), 15=aggressive (1m 15s) |
+| `PaginationDelay`    | 40ms                | Delay between SSM requests | Lower=faster but higher throttle risk                                  |
+| `ScheduleExpression` | `cron(0 2 * * ? *)` | EventBridge cron schedule  | Adjust timing as needed                                                |
 
 ### Redeploy with New Settings
 
@@ -504,8 +516,8 @@ For balanced performance (30% faster):
 
 ```yaml
 Parameters:
-  BatchSize: 12      # Change from 10
-  PaginationDelay: 35  # Change from 40
+  BatchSize: 12 # Change from 10
+  PaginationDelay: 35 # Change from 40
 ```
 
 ## Troubleshooting
@@ -530,6 +542,7 @@ Parameters:
 
 **Problem**: Not receiving emails
 **Solution**:
+
 1. Check spam folder
 2. Verify subscription status (must be "Confirmed")
 3. Re-subscribe if confirmation link expired
@@ -538,6 +551,7 @@ Parameters:
 
 **Problem**: `Read timeout on endpoint URL` when using `forceRefresh: true`
 **Solution**: Force refresh takes ~1m 46s which exceeds AWS CLI default timeout (60s)
+
 ```bash
 # Option 1: Use async invocation (recommended)
 aws lambda invoke \
@@ -564,13 +578,13 @@ For more troubleshooting, see [docs/DEPLOYMENT_QUICKSTART.md](./docs/DEPLOYMENT_
 
 Monthly operational costs (based on daily execution):
 
-| Service | Usage | Cost |
-|---------|-------|------|
-| Lambda | ~30 invocations @ 15s each | ~$0.02 |
-| S3 | Storage + requests | ~$0.01 |
-| CloudWatch | Logs retention (7 days) | ~$0.01 |
-| SNS | Email notifications | FREE (first 1,000) |
-| **Total** | | **~$0.04/month** |
+| Service    | Usage                      | Cost               |
+| ---------- | -------------------------- | ------------------ |
+| Lambda     | ~30 invocations @ 15s each | ~$0.02             |
+| S3         | Storage + requests         | ~$0.01             |
+| CloudWatch | Logs retention (7 days)    | ~$0.01             |
+| SNS        | Email notifications        | FREE (first 1,000) |
+| **Total**  |                            | **~$0.04/month**   |
 
 ## Documentation
 
@@ -635,6 +649,7 @@ All data is fetched from **AWS SSM Parameter Store** public parameters:
 - **S3 Storage**: Lambda production environment
 
 **Cache Strategy**: 24-hour TTL per region with validation:
+
 - First run: Fetches all data (~1m 49s)
 - Cached run: Loads from S3 (~13s, 8x faster)
 - Stale regions: Automatically refreshed after 24 hours
@@ -654,6 +669,7 @@ See [CHANGELOG.md](./docs/CHANGELOG.md) for detailed version history.
 **Current Version**: 1.5.1 (Node.js 20.x Runtime)
 
 **Key Milestones**:
+
 - **v1.0.0**: Initial CLI tool for region discovery
 - **v1.1.0**: Added service-by-region mapping
 - **v1.2.0**: Parallel processing and caching (4-5x speedup)

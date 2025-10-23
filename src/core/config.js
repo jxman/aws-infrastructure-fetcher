@@ -118,7 +118,7 @@ module.exports = {
      * Batch size for parallel service name fetching
      * Default: 20
      *
-     * Number of services to process in parallel (395 total services)
+     * Number of services to process in parallel (394 total services)
      * Safe range: 15-30
      */
     serviceNameBatchSize: 20,

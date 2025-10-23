@@ -27,28 +27,35 @@ aws sns list-subscriptions-by-topic \
 ## What You'll Receive
 
 ### ✅ Success Notifications
+
 Sent after every successful Lambda execution with:
+
 - Regions discovered
 - Services discovered
 - Execution duration
 - S3 file paths
 - Cache statistics
 
-### ❌ Error Notifications  
+### ❌ Error Notifications
+
 Sent when Lambda encounters errors with:
+
 - Error message and type
 - Stack trace
 - Duration before failure
 - Direct link to CloudWatch Logs
 
 ### ⚠️ CloudWatch Alarms
+
 Sent when alarms trigger:
+
 - Error alarm: Any Lambda execution error
 - Duration alarm: Execution exceeds 2 minutes
 
 ## Testing Notifications
 
 ### Test Success Notification
+
 ```bash
 # Run the Lambda function
 aws lambda invoke \
@@ -61,11 +68,13 @@ aws lambda invoke \
 ```
 
 ### Test Error Notification
+
 You can temporarily trigger an error by invoking with invalid options, or wait for a natural error to occur.
 
 ## Managing Notifications
 
 ### Unsubscribe from Email
+
 Use the unsubscribe link at the bottom of any notification email, or:
 
 ```bash
@@ -78,6 +87,7 @@ aws sns unsubscribe --subscription-arn arn:aws:sns:us-east-1:SUBSCRIPTION_ARN
 ```
 
 ### Add Additional Email Addresses
+
 ```bash
 # Subscribe another email
 aws sns subscribe \
@@ -87,6 +97,7 @@ aws sns subscribe \
 ```
 
 ### Subscribe SMS (Optional)
+
 ```bash
 # Subscribe via SMS
 aws sns subscribe \
@@ -98,6 +109,7 @@ aws sns subscribe \
 ## Notification Examples
 
 ### Success Email
+
 ```
 Subject: ✅ AWS Data Fetcher Success - 13s
 
@@ -105,7 +117,7 @@ AWS Data Fetcher completed successfully!
 
 Summary:
 - Regions: 38
-- Services: 395
+- Services: 394
 - Duration: 13s
 - Request ID: abc-123-def
 
@@ -122,6 +134,7 @@ Service Mapping:
 ```
 
 ### Error Email
+
 ```
 Subject: ❌ AWS Data Fetcher Error - AccessDeniedException
 
@@ -144,11 +157,13 @@ Please check CloudWatch Logs for more details:
 ## Troubleshooting
 
 ### Not Receiving Emails?
+
 1. **Check spam folder** - AWS emails may be filtered
 2. **Verify subscription status**: Must be "Confirmed" (not "PendingConfirmation")
 3. **Check email address**: Ensure no typos in subscription command
 
 ### Confirm Subscription Link Expired?
+
 ```bash
 # Resubscribe
 aws sns subscribe \
@@ -158,6 +173,7 @@ aws sns subscribe \
 ```
 
 ### Too Many Notifications?
+
 - Success notifications sent on every execution (daily at 2 AM UTC + manual invocations)
 - To reduce noise, you can unsubscribe from success notifications and only keep error alerts
 - Or adjust the EventBridge schedule to run less frequently
@@ -189,6 +205,7 @@ aws sns subscribe \
 ## Cost
 
 SNS costs are minimal:
+
 - First 1,000 email notifications: FREE
 - After 1,000: $2 per 100,000 emails
 - Daily execution = ~30 notifications/month = **FREE**
@@ -203,5 +220,6 @@ SNS costs are minimal:
 ---
 
 For more information, see:
+
 - [AWS SNS Documentation](https://docs.aws.amazon.com/sns/)
 - [CloudWatch Alarms](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html)

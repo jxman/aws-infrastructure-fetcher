@@ -8,16 +8,19 @@
 ## Performance Improvements
 
 ### Before Optimization
+
 - **Batch Size**: 5 regions in parallel
 - **Runtime**: ~2 minutes (120 seconds)
 - **Service-by-region**: 8 batches of 5 regions
 
 ### After Optimization
+
 - **Batch Size**: 10 regions in parallel (100% increase)
 - **Runtime**: **1 minute 43 seconds** (103 seconds)
 - **Service-by-region**: 4 batches of 10 regions
 
 ### Performance Gain
+
 - **Time saved**: 17 seconds (~14% faster)
 - **Batches reduced**: 8 → 4 (50% fewer batches)
 - **Performance rating**: ⚠️ Good (target <60s = Excellent)
@@ -27,6 +30,7 @@
 ## Changes Implemented
 
 ### 1. Batch Size Increase
+
 **File**: `fetch-aws-data.js`, line 522
 
 ```javascript
@@ -44,94 +48,165 @@ const batchSize = 10; // Process 10 regions in parallel (optimized for performan
 ### 2. Text Output Improvements
 
 #### A. Header Banner
+
 ```javascript
 // Before
-console.log(chalk.bold.blue('\n🚀 AWS SSM Data Fetcher Starting...\n'));
+console.log(chalk.bold.blue("\n🚀 AWS SSM Data Fetcher Starting...\n"));
 
 // After
-console.log(chalk.bold.blue('\n' + '='.repeat(60)));
-console.log(chalk.bold.blue('🚀 AWS SSM Data Fetcher v1.4.0'));
-console.log(chalk.bold.blue('='.repeat(60) + '\n'));
+console.log(chalk.bold.blue("\n" + "=".repeat(60)));
+console.log(chalk.bold.blue("🚀 AWS SSM Data Fetcher v1.4.0"));
+console.log(chalk.bold.blue("=".repeat(60) + "\n"));
 ```
 
 #### B. Batch Processing Messages
+
 ```javascript
 // Before
-console.log(chalk.blue(`   Using parallel processing with batch size of 5 for rate limit safety`));
+console.log(
+  chalk.blue(
+    `   Using parallel processing with batch size of 5 for rate limit safety`
+  )
+);
 
 // After
-console.log(chalk.blue(`   ⚡ Using parallel processing with batch size of 10 (optimized for performance)`));
-console.log(chalk.white(`   📊 Fetching ${staleRegions.length} regions (${cachedRegions} from cache)...`));
+console.log(
+  chalk.blue(
+    `   ⚡ Using parallel processing with batch size of 10 (optimized for performance)`
+  )
+);
+console.log(
+  chalk.white(
+    `   📊 Fetching ${staleRegions.length} regions (${cachedRegions} from cache)...`
+  )
+);
 ```
 
 #### C. Cache Status Messages
+
 ```javascript
 // Before
-console.log(chalk.green(`   ✅ Loaded ${cachedRegions} regions from cache (fresh)`));
-console.log(chalk.yellow(`   ⏰ ${staleRegions.length} regions are stale and need refresh`));
+console.log(
+  chalk.green(`   ✅ Loaded ${cachedRegions} regions from cache (fresh)`)
+);
+console.log(
+  chalk.yellow(
+    `   ⏰ ${staleRegions.length} regions are stale and need refresh`
+  )
+);
 
 // After
-console.log(chalk.green(`   ✅ Cache hit: ${cachedRegions}/${regions.length} regions (fresh)`));
-console.log(chalk.yellow(`   ⏰ Cache miss: ${staleRegions.length}/${regions.length} regions need refresh`));
+console.log(
+  chalk.green(
+    `   ✅ Cache hit: ${cachedRegions}/${regions.length} regions (fresh)`
+  )
+);
+console.log(
+  chalk.yellow(
+    `   ⏰ Cache miss: ${staleRegions.length}/${regions.length} regions need refresh`
+  )
+);
 ```
 
 #### D. ETA Display
+
 ```javascript
 // Before
-console.log(chalk.gray(`   ✅ ${region}: ${regionServices.size} services (${processedRegions}/${regions.length}) - ETA: ${etaMin}m ${etaSec}s`));
+console.log(
+  chalk.gray(
+    `   ✅ ${region}: ${regionServices.size} services (${processedRegions}/${regions.length}) - ETA: ${etaMin}m ${etaSec}s`
+  )
+);
 
 // After
 const etaDisplay = etaMin > 0 ? `${etaMin}m ${etaSec}s` : `${etaSec}s`;
-console.log(chalk.gray(`   ✅ ${region}: ${regionServices.size} services (${processedRegions}/${regions.length}) | ETA: ${etaDisplay}`));
+console.log(
+  chalk.gray(
+    `   ✅ ${region}: ${regionServices.size} services (${processedRegions}/${regions.length}) | ETA: ${etaDisplay}`
+  )
+);
 ```
 
 #### E. Summary Display
+
 ```javascript
 // Before
-console.log(chalk.bold.green('\n✅ DATA FETCH COMPLETE!'));
-console.log(chalk.white('📁 Output directory:', this.outputDir));
+console.log(chalk.bold.green("\n✅ DATA FETCH COMPLETE!"));
+console.log(chalk.white("📁 Output directory:", this.outputDir));
 console.log(chalk.white(`🌍 Total regions: ${results.regions.count}`));
 
 // After
-console.log(chalk.bold.green('\n' + '='.repeat(60)));
-console.log(chalk.bold.green('✅ DATA FETCH COMPLETE!'));
-console.log(chalk.bold.green('='.repeat(60)));
-console.log(chalk.white('\n📁 Output directory:', this.outputDir));
+console.log(chalk.bold.green("\n" + "=".repeat(60)));
+console.log(chalk.bold.green("✅ DATA FETCH COMPLETE!"));
+console.log(chalk.bold.green("=".repeat(60)));
+console.log(chalk.white("\n📁 Output directory:", this.outputDir));
 console.log(chalk.white(`🌍 Regions discovered: ${results.regions.count}`));
 console.log(chalk.white(`🛠️  Services discovered: ${results.services.count}`));
-console.log(chalk.white(`🗺️  Service-by-region mappings: ${results.servicesByRegion.summary.totalRegions} regions`));
-console.log(chalk.white(`   📊 Total service instances: ${cumulativeServiceCount.toLocaleString()}`));
-console.log(chalk.white(`   📈 Average per region: ${results.servicesByRegion.summary.averageServicesPerRegion} services`));
+console.log(
+  chalk.white(
+    `🗺️  Service-by-region mappings: ${results.servicesByRegion.summary.totalRegions} regions`
+  )
+);
+console.log(
+  chalk.white(
+    `   📊 Total service instances: ${cumulativeServiceCount.toLocaleString()}`
+  )
+);
+console.log(
+  chalk.white(
+    `   📈 Average per region: ${results.servicesByRegion.summary.averageServicesPerRegion} services`
+  )
+);
 ```
 
 #### F. Performance Indicator
+
 ```javascript
 // New feature - shows performance rating
-let performanceIcon = '⚡';
-let performanceText = 'Excellent';
-if (runtimeMs > 120000) { // > 2 minutes
-    performanceIcon = '🐌';
-    performanceText = 'Slow';
-} else if (runtimeMs > 60000) { // > 1 minute
-    performanceIcon = '⚠️';
-    performanceText = 'Good';
+let performanceIcon = "⚡";
+let performanceText = "Excellent";
+if (runtimeMs > 120000) {
+  // > 2 minutes
+  performanceIcon = "🐌";
+  performanceText = "Slow";
+} else if (runtimeMs > 60000) {
+  // > 1 minute
+  performanceIcon = "⚠️";
+  performanceText = "Good";
 }
 
-console.log(chalk.gray(`\n⏱️  Total runtime: ${runtimeMin}m ${runtimeRemainingSec}s ${performanceIcon} (${performanceText})`));
+console.log(
+  chalk.gray(
+    `\n⏱️  Total runtime: ${runtimeMin}m ${runtimeRemainingSec}s ${performanceIcon} (${performanceText})`
+  )
+);
 ```
 
 #### G. Completion Stats
+
 ```javascript
 // Before
-console.log(chalk.green(`✅ Completed service mapping for ${regions.length} regions`));
-console.log(chalk.white(`   Fetched: ${staleRegions.length} regions, Cached: ${cachedRegions} regions`));
-console.log(chalk.white(`   Average services per region: ${avgServicesPerRegion}`));
+console.log(
+  chalk.green(`✅ Completed service mapping for ${regions.length} regions`)
+);
+console.log(
+  chalk.white(
+    `   Fetched: ${staleRegions.length} regions, Cached: ${cachedRegions} regions`
+  )
+);
+console.log(
+  chalk.white(`   Average services per region: ${avgServicesPerRegion}`)
+);
 
 // After
-console.log(chalk.green(`\n✅ Completed service mapping for ${regions.length} regions`));
+console.log(
+  chalk.green(`\n✅ Completed service mapping for ${regions.length} regions`)
+);
 console.log(chalk.white(`   📍 Newly fetched: ${staleRegions.length} regions`));
 console.log(chalk.white(`   💾 From cache: ${cachedRegions} regions`));
-console.log(chalk.white(`   📊 Average services per region: ${avgServicesPerRegion}`));
+console.log(
+  chalk.white(`   📊 Average services per region: ${avgServicesPerRegion}`)
+);
 ```
 
 ---
@@ -139,6 +214,7 @@ console.log(chalk.white(`   📊 Average services per region: ${avgServicesPerRe
 ## Output Comparison
 
 ### Before
+
 ```
 AWS SSM Data Fetcher Starting...
 
@@ -155,12 +231,13 @@ Fetching 38 regions (0 from cache)...
 ✅ DATA FETCH COMPLETE!
 📁 Output directory: ./output
 🌍 Total regions: 38
-🛠️  Total services discovered: 395
+🛠️  Total services discovered: 394
 
 ⏱️  Runtime: 2m 0s
 ```
 
 ### After
+
 ```
 ============================================================
 🚀 AWS SSM Data Fetcher v1.4.0
@@ -183,7 +260,7 @@ Fetching 38 regions (0 from cache)...
 
 📁 Output directory: ./output
 🌍 Regions discovered: 38
-🛠️  Services discovered: 395
+🛠️  Services discovered: 394
 🗺️  Service-by-region mappings: 38 regions
    📊 Total service instances: 8,637
    📈 Average per region: 227 services
@@ -201,6 +278,7 @@ Fetching 38 regions (0 from cache)...
 **Command**: `npm run complete`
 
 **Results**:
+
 ```
 ============================================================
 ✅ DATA FETCH COMPLETE!
@@ -208,7 +286,7 @@ Fetching 38 regions (0 from cache)...
 
 📁 Output directory: ./output
 🌍 Regions discovered: 38
-🛠️  Services discovered: 395
+🛠️  Services discovered: 394
 🗺️  Service-by-region mappings: 38 regions
    📊 Total service instances: 8,637
    📈 Average per region: 227 services
@@ -218,9 +296,10 @@ Fetching 38 regions (0 from cache)...
 ```
 
 **Key Metrics**:
+
 - ✅ Total runtime: **1 minute 43 seconds**
 - ✅ Regions discovered: 38
-- ✅ Services discovered: 395
+- ✅ Services discovered: 394
 - ✅ Service instances: 8,637
 - ✅ Average per region: 227 services
 - ✅ Performance rating: Good (target: Excellent <60s)
@@ -232,12 +311,14 @@ Fetching 38 regions (0 from cache)...
 ### Batch Processing Impact
 
 **Before (Batch size = 5)**:
+
 - Total regions: 38
 - Batches needed: 38 ÷ 5 = 7.6 → 8 batches
 - Average batch time: ~15 seconds
 - Total mapping time: 8 × 15s = 120 seconds
 
 **After (Batch size = 10)**:
+
 - Total regions: 38
 - Batches needed: 38 ÷ 10 = 3.8 → 4 batches
 - Average batch time: ~15 seconds
@@ -276,6 +357,7 @@ Total:                   ~103 seconds (1m 43s)
 ### Changes Implemented
 
 #### 1. Parallel AZ Mapping
+
 **File**: `fetch-aws-data.js`, lines 239-279
 
 ```javascript
@@ -283,22 +365,22 @@ Total:                   ~103 seconds (1m 43s)
 const azBatchSize = 20;
 
 for (let i = 0; i < azIds.length; i += azBatchSize) {
-    const batch = azIds.slice(i, i + azBatchSize);
+  const batch = azIds.slice(i, i + azBatchSize);
 
-    const batchPromises = batch.map(async (azId) => {
-        const parentRegionPath = `/aws/service/global-infrastructure/availability-zones/${azId}/parent-region`;
-        const command = new GetParameterCommand({ Name: parentRegionPath });
-        const response = await this.ssmClient.send(command);
-        return { azId, parentRegion: response.Parameter?.Value };
-    });
+  const batchPromises = batch.map(async (azId) => {
+    const parentRegionPath = `/aws/service/global-infrastructure/availability-zones/${azId}/parent-region`;
+    const command = new GetParameterCommand({ Name: parentRegionPath });
+    const response = await this.ssmClient.send(command);
+    return { azId, parentRegion: response.Parameter?.Value };
+  });
 
-    const batchResults = await Promise.all(batchPromises);
-    // Aggregate results...
+  const batchResults = await Promise.all(batchPromises);
+  // Aggregate results...
 
-    // 100ms delay between batches
-    if (i + azBatchSize < azIds.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
+  // 100ms delay between batches
+  if (i + azBatchSize < azIds.length) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 }
 ```
 
@@ -306,6 +388,7 @@ for (let i = 0; i < azIds.length; i += azBatchSize) {
 **Actual**: No measurable improvement
 
 #### 2. Parallel Region Name Fetching
+
 **File**: `fetch-aws-data.js`, lines 284-349
 
 ```javascript
@@ -331,6 +414,7 @@ for (let i = 0; i < regionCodesArray.length; i += regionNameBatchSize) {
 **Actual**: No measurable improvement
 
 #### 3. Parallel Service Name Fetching
+
 **File**: `fetch-aws-data.js`, lines 387-444
 
 ```javascript
@@ -360,6 +444,7 @@ for (let i = 0; i < serviceCodesArray.length; i += serviceNameBatchSize) {
 **Command**: `npm run complete` (with cache cleared)
 
 **Runtime**: **1 minute 43 seconds** (103 seconds)
+
 - Same as Phase 1 results
 - Zero improvement from parallel processing
 
@@ -372,6 +457,7 @@ for (let i = 0; i < serviceCodesArray.length; i += serviceNameBatchSize) {
 2. **Batch Delays Negate Benefits**: The 100ms delays between batches (added for rate limiting) partially offset any parallel processing gains.
 
 3. **Wrong Bottleneck**: The original analysis overestimated the time spent in regions/services discovery. The actual breakdown is:
+
    - **Regions + Services Discovery**: ~33 seconds (not 43s as estimated)
    - **Service-by-Region Mapping**: ~70 seconds (the real bottleneck)
 
@@ -392,7 +478,7 @@ Region Discovery:          ~18 seconds
 
 Service Discovery:         ~15 seconds
   - Fetch service codes:     3s (pagination)
-  - Service names:           12s (395 services, parallel)
+  - Service names:           12s (394 services, parallel)
 
 Service-by-Region:         ~70 seconds ⚠️ BOTTLENECK
   - 4 batches × 10 regions:  70s
@@ -419,6 +505,7 @@ Based on revised analysis:
 **Focus**: Target the 70-second bottleneck that accounts for 68% of total runtime.
 
 #### Option A: Increase Batch Size Further (Easy Win)
+
 **Effort**: 5 minutes
 **Risk**: Medium (may hit rate limits)
 
@@ -435,10 +522,12 @@ const batchSize = 15; // Increase to 15 regions
 **Projected**: 103s → **85s** (17% faster)
 
 #### Option B: Optimize fetchAllSSMParameters for Large Paths
+
 **Effort**: 1-2 hours
 **Risk**: Low
 
 The bottleneck is pagination within each region's service list (~100-110 pages per region). Optimize by:
+
 1. Reduce per-page delay from 50ms to 25ms
 2. Use adaptive delays (faster for early pages, slower if throttled)
 3. Increase MaxResults if possible
@@ -446,6 +535,7 @@ The bottleneck is pagination within each region's service list (~100-110 pages p
 **Projected**: 103s → **70s** (32% faster)
 
 #### Option C: Parallel Regions + Services Execution
+
 **Effort**: 2-3 hours
 **Risk**: Medium
 
@@ -454,6 +544,7 @@ Run region discovery and service discovery simultaneously instead of sequentiall
 **Projected**: 103s → **88s** (15% faster, save 15s)
 
 #### Option D: Batch Size 20 + Optimized Pagination (Aggressive)
+
 **Effort**: 2-3 hours
 **Risk**: High (rate limiting)
 
@@ -464,29 +555,28 @@ Combine Option A + Option B with more aggressive settings.
 ### Recommended Approach
 
 **Immediate (5 minutes)**:
+
 1. Test batch size 15 (Option A)
 2. Monitor for throttling errors
 3. If successful, test batch size 20
 
-**Short-term (1-2 hours)**:
-4. Implement optimized pagination (Option B)
-5. Expected result: **~70 seconds** total runtime
+**Short-term (1-2 hours)**: 4. Implement optimized pagination (Option B) 5. Expected result: **~70 seconds** total runtime
 
-**Medium-term (2-3 hours)**:
-6. Combine batch size increase + pagination optimization
-7. Expected result: **~55 seconds** (⚡ Excellent!)
+**Medium-term (2-3 hours)**: 6. Combine batch size increase + pagination optimization 7. Expected result: **~55 seconds** (⚡ Excellent!)
 
 ---
 
 ## Recommendations (Updated After Phase 2)
 
 ### Phase 1 (Completed ✅)
+
 - ✅ Increase batch size from 5 to 10
 - ✅ Improve text output and formatting
 - ✅ Add performance indicators
 - ✅ **Result**: 120s → 103s (14% improvement)
 
 ### Phase 2 (Completed ❌)
+
 - ✅ Implement parallel AZ mapping (batch size 20)
 - ✅ Implement parallel region name fetching (batch size 10)
 - ✅ Implement parallel service name fetching (batch size 20)
@@ -496,15 +586,18 @@ Combine Option A + Option B with more aggressive settings.
 ### Phase 3 (Recommended Next Steps)
 
 **Immediate (5 minutes)**:
+
 - [ ] Test batch size 15 for service-by-region mapping
 - [ ] Expected result: **~85 seconds** (17% improvement)
 
 **Short-term (1-2 hours)**:
+
 - [ ] Optimize fetchAllSSMParameters pagination delays
 - [ ] Reduce per-page delay from 50ms to 25ms
 - [ ] Expected result: **~70 seconds** (32% improvement)
 
 **Medium-term (2-3 hours)**:
+
 - [ ] Combine batch size 20 + optimized pagination
 - [ ] Expected result: **~55 seconds** (⚡ Excellent rating!)
 
@@ -513,13 +606,17 @@ Combine Option A + Option B with more aggressive settings.
 ## Risk Assessment
 
 ### Current Changes (Completed)
+
 **Risk**: ✅ **Low**
+
 - Batch size increase from 5 to 10 is well within AWS limits
 - No throttling errors observed in testing
 - Text improvements have zero performance impact
 
 ### Recommended: Increase to Batch Size 15
+
 **Risk**: ⚠️ **Medium**
+
 - May approach AWS rate limits for some accounts
 - Should test thoroughly before deploying
 - Potential savings: Additional 10-15 seconds
@@ -533,6 +630,7 @@ Combine Option A + Option B with more aggressive settings.
 ### Summary of Optimization Results
 
 **Phase 1** (✅ Successful):
+
 - ✅ **14% performance improvement** (120s → 103s, saved 17 seconds)
 - ✅ **50% reduction in batches** (8 → 4)
 - ✅ **Significantly improved UX** with better formatting
@@ -540,6 +638,7 @@ Combine Option A + Option B with more aggressive settings.
 - ✅ **Easy to implement** (single line change + text improvements)
 
 **Phase 2** (❌ No Improvement):
+
 - ❌ **0% performance improvement** (103s → 103s, saved 0 seconds)
 - ✅ **Successfully implemented** all three parallel processing optimizations
 - ❌ **Wrong bottleneck targeted**: Focused on regions/services discovery (33s) instead of service-by-region mapping (70s)
