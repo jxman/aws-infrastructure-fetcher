@@ -44,3 +44,5 @@ packaged.yaml
 
 # Lambda test artifacts
 response.json
+*.response.json
+test-response*.json

@@ -253,7 +253,7 @@ The `complete-data.json` file is the **single source of truth** containing:
 
 ### Data Contract Specification
 
-For applications consuming this data (dashboards, reporters, analysis tools), see **[DATA_CONTRACT.md](./DATA_CONTRACT.md)** for the formal JSON schema specification including:
+For applications consuming this data (dashboards, reporters, analysis tools), see **[DATA_CONTRACT.md](./docs/DATA_CONTRACT.md)** for the formal JSON schema specification including:
 
 - Complete field definitions with types and constraints
 - Validation rules and examples
@@ -578,7 +578,7 @@ Monthly operational costs (based on daily execution):
 - **[SNS Notifications Setup](./docs/NOTIFICATIONS_SETUP.md)** - Configure email alerts
 - **[Lambda Deployment Guide](./docs/LAMBDA_DEPLOYMENT_GUIDE.md)** - Comprehensive Lambda guide
 - **[Optimization Results](./docs/OPTIMIZATION_RESULTS.md)** - Performance benchmarks
-- **[Changelog](./CHANGELOG.md)** - Version history and changes
+- **[Changelog](./docs/CHANGELOG.md)** - Version history and changes
 
 ## Project Structure
 
@@ -649,7 +649,7 @@ All data is fetched from **AWS SSM Parameter Store** public parameters:
 
 ## Version History
 
-See [CHANGELOG.md](./CHANGELOG.md) for detailed version history.
+See [CHANGELOG.md](./docs/CHANGELOG.md) for detailed version history.
 
 **Current Version**: 1.5.1 (Node.js 20.x Runtime)
 

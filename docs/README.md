@@ -10,7 +10,7 @@ This directory contains comprehensive documentation for the AWS SSM Data Fetcher
 
 ### Main Documentation
 - **[Project README](../README.md)** - Main project documentation, features, and usage
-- **[Changelog](../CHANGELOG.md)** - Complete version history from v1.0.0 to v1.5.0
+- **[Changelog](CHANGELOG.md)** - Complete version history from v1.0.0 to v1.5.0
 
 ## Documentation Structure
 
@@ -32,8 +32,8 @@ docs/
 3. Configure [Email Notifications](NOTIFICATIONS_SETUP.md) for execution alerts
 
 ### For Existing CLI Users
-1. Review the [Changelog](../CHANGELOG.md) to see what's new in v1.5.0
-2. Check the [Migration Guide](../CHANGELOG.md#migration-from-cli-to-lambda) in the changelog
+1. Review the [Changelog](CHANGELOG.md) to see what's new in v1.5.0
+2. Check the [Migration Guide](CHANGELOG.md#migration-from-cli-to-lambda) in the changelog
 3. Deploy to Lambda while keeping CLI functionality intact
 
 ## Key Features Documented
@@ -125,7 +125,7 @@ When adding new documentation:
 1. **Place in appropriate directory:**
    - Deployment guides → `docs/`
    - Feature documentation → Update `../README.md`
-   - Version history → Update `../CHANGELOG.md`
+   - Version history → Update `CHANGELOG.md`
 
 2. **Update this index:**
    - Add new files to the relevant section
