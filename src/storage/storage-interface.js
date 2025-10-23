@@ -23,6 +23,27 @@ class StorageInterface {
   async saveCache(data) {
     throw new Error('saveCache() not implemented');
   }
+
+  // Change tracking methods
+  async loadChangeHistory() {
+    throw new Error('loadChangeHistory() not implemented');
+  }
+
+  async saveChangeHistory(data) {
+    throw new Error('saveChangeHistory() not implemented');
+  }
+
+  async loadPreviousSnapshot() {
+    throw new Error('loadPreviousSnapshot() not implemented');
+  }
+
+  async savePreviousSnapshot(data) {
+    throw new Error('savePreviousSnapshot() not implemented');
+  }
+
+  async loadServicesForChangeTracking() {
+    throw new Error('loadServicesForChangeTracking() not implemented');
+  }
 }
 
 module.exports = StorageInterface;

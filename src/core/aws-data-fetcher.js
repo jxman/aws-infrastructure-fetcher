@@ -800,7 +800,7 @@ class AWSDataFetcher {
             // Track changes (only if we have both regions and services)
             if (!options.regionsOnly && !options.servicesOnly) {
                 const ChangeTracker = require('./change-tracker');
-                const changeTracker = new ChangeTracker(this.outputDir);
+                const changeTracker = new ChangeTracker(this.storage);
 
                 try {
                     const changeResults = await changeTracker.detectAndTrackChanges(completeData);

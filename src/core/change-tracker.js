@@ -5,15 +5,11 @@
  * Designed to handle multiple runs per day without duplicating changelog entries.
  */
 
-const fs = require('fs').promises;
-const path = require('path');
 const chalk = require('chalk');
 
 class ChangeTracker {
-    constructor(outputDir = './output') {
-        this.outputDir = outputDir;
-        this.changeHistoryFile = path.join(outputDir, 'change-history.json');
-        this.previousSnapshotFile = path.join(outputDir, '.previous-snapshot.json');
+    constructor(storage) {
+        this.storage = storage;
     }
 
     /**
@@ -37,19 +33,15 @@ class ChangeTracker {
     }
 
     /**
-     * Load change history from file, or create initial structure
+     * Load change history from storage, or create initial structure
      */
     async loadChangeHistory() {
-        try {
-            const data = await fs.readFile(this.changeHistoryFile, 'utf8');
-            return JSON.parse(data);
-        } catch (error) {
-            if (error.code === 'ENOENT') {
-                // File doesn't exist, return empty structure
-                return this.createEmptyChangeHistory();
-            }
-            throw error;
+        const data = await this.storage.loadChangeHistory();
+        if (!data) {
+            // File doesn't exist, return empty structure
+            return this.createEmptyChangeHistory();
         }
+        return data;
     }
 
     /**
@@ -77,38 +69,24 @@ class ChangeTracker {
     }
 
     /**
-     * Load previous snapshot from file
+     * Load previous snapshot from storage
      */
     async loadPreviousSnapshot() {
-        try {
-            const data = await fs.readFile(this.previousSnapshotFile, 'utf8');
-            return JSON.parse(data);
-        } catch (error) {
-            if (error.code === 'ENOENT') {
-                return null; // No previous snapshot exists
-            }
-            throw error;
-        }
+        return await this.storage.loadPreviousSnapshot();
     }
 
     /**
      * Save current data as previous snapshot for next run
      */
     async savePreviousSnapshot(currentData) {
-        await fs.writeFile(
-            this.previousSnapshotFile,
-            JSON.stringify(currentData, null, 2)
-        );
+        await this.storage.savePreviousSnapshot(currentData);
     }
 
     /**
-     * Save change history to file
+     * Save change history to storage
      */
     async saveChangeHistory(changeHistory) {
-        await fs.writeFile(
-            this.changeHistoryFile,
-            JSON.stringify(changeHistory, null, 2)
-        );
+        await this.storage.saveChangeHistory(changeHistory);
     }
 
     /**
@@ -233,13 +211,15 @@ class ChangeTracker {
     }
 
     /**
-     * Load service names from services.json file
+     * Load service names from storage
      */
     async loadServiceNames() {
         try {
-            const servicesFile = path.join(this.outputDir, 'services.json');
-            const data = await fs.readFile(servicesFile, 'utf8');
-            const servicesData = JSON.parse(data);
+            const servicesData = await this.storage.loadServicesForChangeTracking();
+            if (!servicesData) {
+                console.warn(chalk.yellow('   ⚠️  Could not load service names, using codes'));
+                return {};
+            }
 
             const serviceMap = {};
             if (servicesData.services && Array.isArray(servicesData.services)) {
@@ -420,8 +400,6 @@ class ChangeTracker {
         // Save files
         await this.saveChangeHistory(changeHistory);
         await this.savePreviousSnapshot(currentData);
-
-        console.log(chalk.green(`💾 Change history updated: ${this.changeHistoryFile}`));
 
         return {
             hasChanges: true,

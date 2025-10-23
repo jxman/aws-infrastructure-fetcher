@@ -326,6 +326,89 @@ class S3Storage extends StorageInterface {
 
     console.log(`💾 Cache saved to S3: s3://${this.bucketName}/${key}`);
   }
+
+  // Change tracking methods
+  async loadChangeHistory() {
+    try {
+      const key = `${this.prefix}/change-history.json`;
+      const response = await this.s3Client.send(new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key
+      }));
+      const body = await response.Body.transformToString();
+      return JSON.parse(body);
+    } catch (error) {
+      if (error.name === 'NoSuchKey') {
+        return null; // File doesn't exist
+      }
+      throw error;
+    }
+  }
+
+  async saveChangeHistory(data) {
+    const key = `${this.prefix}/change-history.json`;
+    await this.s3Client.send(new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      Body: JSON.stringify(data, null, 2),
+      ContentType: 'application/json',
+      Metadata: {
+        'updated-at': new Date().toISOString(),
+        'type': 'change-history',
+        'version': '1.6.0'
+      }
+    }));
+    console.log(`💾 Change history saved to: s3://${this.bucketName}/${key}`);
+  }
+
+  async loadPreviousSnapshot() {
+    try {
+      const key = `${this.prefix}/.previous-snapshot.json`;
+      const response = await this.s3Client.send(new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key
+      }));
+      const body = await response.Body.transformToString();
+      return JSON.parse(body);
+    } catch (error) {
+      if (error.name === 'NoSuchKey') {
+        return null; // File doesn't exist
+      }
+      throw error;
+    }
+  }
+
+  async savePreviousSnapshot(data) {
+    const key = `${this.prefix}/.previous-snapshot.json`;
+    await this.s3Client.send(new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      Body: JSON.stringify(data, null, 2),
+      ContentType: 'application/json',
+      Metadata: {
+        'saved-at': new Date().toISOString(),
+        'type': 'snapshot',
+        'version': '1.6.0'
+      }
+    }));
+  }
+
+  async loadServicesForChangeTracking() {
+    try {
+      const key = `${this.prefix}/services.json`;
+      const response = await this.s3Client.send(new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key
+      }));
+      const body = await response.Body.transformToString();
+      return JSON.parse(body);
+    } catch (error) {
+      if (error.name === 'NoSuchKey') {
+        return null; // File doesn't exist
+      }
+      throw error;
+    }
+  }
 }
 
 module.exports = S3Storage;

@@ -49,6 +49,57 @@ class LocalStorage extends StorageInterface {
     await fs.writeFile(cachePath, JSON.stringify(data, null, 2));
     console.log(`💾 Cache saved to: ${cachePath}`);
   }
+
+  // Change tracking methods
+  async loadChangeHistory() {
+    const filepath = path.join(this.outputDir, 'change-history.json');
+    try {
+      const data = await fs.readFile(filepath, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return null; // File doesn't exist
+      }
+      throw error;
+    }
+  }
+
+  async saveChangeHistory(data) {
+    const filepath = path.join(this.outputDir, 'change-history.json');
+    await fs.writeFile(filepath, JSON.stringify(data, null, 2));
+    console.log(`💾 Change history saved to: ${filepath}`);
+  }
+
+  async loadPreviousSnapshot() {
+    const filepath = path.join(this.outputDir, '.previous-snapshot.json');
+    try {
+      const data = await fs.readFile(filepath, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return null; // File doesn't exist
+      }
+      throw error;
+    }
+  }
+
+  async savePreviousSnapshot(data) {
+    const filepath = path.join(this.outputDir, '.previous-snapshot.json');
+    await fs.writeFile(filepath, JSON.stringify(data, null, 2));
+  }
+
+  async loadServicesForChangeTracking() {
+    const filepath = path.join(this.outputDir, 'services.json');
+    try {
+      const data = await fs.readFile(filepath, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return null; // File doesn't exist
+      }
+      throw error;
+    }
+  }
 }
 
 module.exports = LocalStorage;
