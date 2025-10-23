@@ -413,64 +413,33 @@ class ChangeTracker {
 
     /**
      * Initialize change history from current data (first run)
+     * Creates minimal baseline without recording all existing items
      */
     async initializeChangeHistory(currentData, serviceNames) {
         const todayDate = this.getTodayDate();
         const changeHistory = this.createEmptyChangeHistory();
 
-        // Add all current regions as baseline
-        if (currentData.regions && currentData.regions.regions) {
-            currentData.regions.regions.forEach(region => {
-                changeHistory.regions[region.code] = {
-                    name: region.name,
-                    firstSeen: todayDate,
-                    availabilityZones: region.availabilityZones,
-                    launchDate: this.formatLaunchDate(region.launchDate),
-                    isNew: false // Baseline items are not marked as new
-                };
-            });
-        }
-
-        // Add all current services as baseline
-        // Services in complete-data.json are stored as array of codes (strings)
-        if (currentData.services && currentData.services.services) {
-            currentData.services.services.forEach(serviceCode => {
-                const serviceName = serviceNames[serviceCode] || serviceCode;
-                changeHistory.services[serviceCode] = {
-                    name: serviceName,
-                    firstSeen: todayDate,
-                    isNew: false
-                };
-            });
-        }
-
-        // Add all current regional services as baseline
-        if (currentData.servicesByRegion && currentData.servicesByRegion.byRegion) {
-            Object.entries(currentData.servicesByRegion.byRegion).forEach(([region, regionData]) => {
-                changeHistory.regionalServices[region] = {};
-                regionData.services.forEach(service => {
-                    changeHistory.regionalServices[region][service] = todayDate;
-                });
-            });
-        }
-
-        // Update metadata
+        // Update metadata with current counts (don't store all items)
         changeHistory.metadata.totalRegions = currentData.regions?.count || 0;
         changeHistory.metadata.totalServices = currentData.services?.count || 0;
 
+        // Calculate total regional services from current data
         let totalRegionalServices = 0;
-        Object.values(changeHistory.regionalServices).forEach(services => {
-            totalRegionalServices += Object.keys(services).length;
-        });
+        if (currentData.servicesByRegion && currentData.servicesByRegion.byRegion) {
+            Object.values(currentData.servicesByRegion.byRegion).forEach(regionData => {
+                totalRegionalServices += regionData.services?.length || 0;
+            });
+        }
         changeHistory.metadata.totalRegionalServices = totalRegionalServices;
 
+        // Set changesSinceInception to 0 (baseline run, no changes yet)
         changeHistory.metadata.changesSinceInception = {
-            newRegions: Object.keys(changeHistory.regions).length,
-            newServices: Object.keys(changeHistory.services).length,
-            newRegionalServices: totalRegionalServices
+            newRegions: 0,
+            newServices: 0,
+            newRegionalServices: 0
         };
 
-        // Add initial changelog entry
+        // Add initial changelog entry indicating baseline was set
         changeHistory.changeLog.push({
             date: todayDate,
             changes: {
