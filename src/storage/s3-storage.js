@@ -4,12 +4,32 @@
  */
 
 const StorageInterface = require('./storage-interface');
-const { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand } = require('@aws-sdk/client-s3');
-const { CloudFrontClient, CreateInvalidationCommand } = require('@aws-sdk/client-cloudfront');
+
+// Lazy-load AWS SDK clients only when S3Storage is instantiated
+// This prevents requiring these packages when using LocalStorage
+let S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand;
+let CloudFrontClient, CreateInvalidationCommand;
 
 class S3Storage extends StorageInterface {
   constructor(bucketName, prefix = 'aws-data') {
     super();
+
+    // Lazy-load S3 SDK only when S3Storage is actually used
+    if (!S3Client) {
+      const s3Module = require('@aws-sdk/client-s3');
+      S3Client = s3Module.S3Client;
+      PutObjectCommand = s3Module.PutObjectCommand;
+      GetObjectCommand = s3Module.GetObjectCommand;
+      CopyObjectCommand = s3Module.CopyObjectCommand;
+    }
+
+    // Lazy-load CloudFront SDK only when S3Storage is actually used
+    if (!CloudFrontClient) {
+      const cfModule = require('@aws-sdk/client-cloudfront');
+      CloudFrontClient = cfModule.CloudFrontClient;
+      CreateInvalidationCommand = cfModule.CreateInvalidationCommand;
+    }
+
     this.s3Client = new S3Client({});
     this.cloudFrontClient = new CloudFrontClient({});
     this.bucketName = bucketName;

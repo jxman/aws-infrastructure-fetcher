@@ -529,6 +529,7 @@ class AWSDataFetcher {
             for (const region of regions) {
                 const cachedData = cache.byRegion[region];
                 if (this.isCacheValid(cachedData)) {
+                    // IMPORTANT: Preserve the original cached data with its original lastFetched timestamp
                     servicesByRegion[region] = cachedData;
                     cachedRegions++;
                 } else {
@@ -555,24 +556,29 @@ class AWSDataFetcher {
         if (staleRegions.length === 0) {
             console.log(chalk.green(`   ✅ All ${cachedRegions} regions loaded from cache, no API calls needed!`));
 
-            // Still need to generate summary
+            // Still need to generate summary with updated stats
             const totalServices = services ? services.length : 0;
             const regionServiceCounts = Object.values(servicesByRegion).map(r => r.serviceCount);
             const avgServicesPerRegion = regionServiceCounts.length > 0
                 ? Math.round(regionServiceCounts.reduce((a, b) => a + b, 0) / regionServiceCounts.length)
                 : 0;
 
-            return {
-                byRegion: servicesByRegion,
+            // Save cache with updated summary (stats reflect current run: all cached, none fetched)
+            const cacheData = {
+                byRegion: servicesByRegion,  // All regions from cache with original timestamps
                 summary: {
                     totalRegions: regions.length,
                     totalServices: totalServices,
                     averageServicesPerRegion: avgServicesPerRegion,
-                    cachedRegions: cachedRegions,
-                    fetchedRegions: 0,
-                    timestamp: new Date().toISOString()
+                    cachedRegions: cachedRegions,  // All regions were cached
+                    fetchedRegions: 0,  // No regions were fetched
+                    lastUpdated: new Date().toISOString()  // Update when cache was last accessed
                 }
             };
+
+            await this.saveCache(cacheData);
+
+            return cacheData;
         }
 
         const batchSize = config.parallelProcessing.serviceByRegionBatchSize;
@@ -599,25 +605,27 @@ class AWSDataFetcher {
                     }
                 });
 
+                // ONLY update the region if it's in staleRegions (needs refresh)
+                // This preserves cached regions with their original timestamps
                 servicesByRegion[region] = {
                     regionCode: region,
                     serviceCount: regionServices.size,
                     services: Array.from(regionServices).sort(),
-                    lastFetched: new Date().toISOString()
+                    lastFetched: new Date().toISOString()  // Fresh timestamp for newly fetched data
                 };
 
                 processedRegions++;
 
-                // Calculate ETA
+                // Calculate ETA based on staleRegions, not all regions
                 const elapsed = Date.now() - startTime;
                 const avgTimePerRegion = elapsed / processedRegions;
-                const remainingRegions = regions.length - processedRegions;
+                const remainingRegions = staleRegions.length - processedRegions;
                 const etaMs = avgTimePerRegion * remainingRegions;
                 const etaMin = Math.round(etaMs / 1000 / 60);
                 const etaSec = Math.round((etaMs / 1000) % 60);
                 const etaDisplay = etaMin > 0 ? `${etaMin}m ${etaSec}s` : `${etaSec}s`;
 
-                console.log(chalk.gray(`   ✅ ${region}: ${regionServices.size} services (${processedRegions}/${regions.length}) | ETA: ${etaDisplay}`));
+                console.log(chalk.gray(`   ✅ ${region}: ${regionServices.size} services (${processedRegions}/${staleRegions.length}) | ETA: ${etaDisplay}`));
 
             } catch (error) {
                 console.warn(chalk.yellow(`   ⚠️  Failed to fetch services for ${region}:`, error.message));
@@ -625,6 +633,7 @@ class AWSDataFetcher {
                     regionCode: region,
                     serviceCount: 0,
                     services: [],
+                    lastFetched: new Date().toISOString(),  // Still set timestamp even on error
                     error: error.message
                 };
                 processedRegions++;
@@ -656,15 +665,17 @@ class AWSDataFetcher {
         console.log(chalk.white(`   📊 Average services per region: ${avgServicesPerRegion}`));
 
         // Save cache for future use
+        // IMPORTANT: This cache now preserves original timestamps for cached regions
+        // and only updates timestamps for newly fetched regions
         const cacheData = {
-            byRegion: servicesByRegion,
+            byRegion: servicesByRegion,  // Contains both cached (old timestamps) and new (fresh timestamps) regions
             summary: {
                 totalRegions: regions.length,
                 totalServices: totalServices,
                 averageServicesPerRegion: avgServicesPerRegion,
-                cachedRegions: cachedRegions,
-                fetchedRegions: staleRegions.length,
-                timestamp: new Date().toISOString()
+                cachedRegions: cachedRegions,  // Reflects current run stats
+                fetchedRegions: staleRegions.length,  // Reflects current run stats
+                lastUpdated: new Date().toISOString()  // Track when cache was last saved (always updated)
             }
         };
 
