@@ -797,6 +797,20 @@ class AWSDataFetcher {
             // Save complete results (single source of truth with codes only)
             results.completePath = await this.saveToFile('complete-data.json', completeData);
 
+            // Track changes (only if we have both regions and services)
+            if (!options.regionsOnly && !options.servicesOnly) {
+                const ChangeTracker = require('./change-tracker');
+                const changeTracker = new ChangeTracker(this.outputDir);
+
+                try {
+                    const changeResults = await changeTracker.detectAndTrackChanges(completeData);
+                    results.changes = changeResults;
+                } catch (error) {
+                    console.error(chalk.yellow('\n⚠️  Change tracking failed:', error.message));
+                    console.error(chalk.gray('   Continuing without change tracking...'));
+                }
+            }
+
             // Summary
             console.log(chalk.bold.green('\n' + '='.repeat(60)));
             console.log(chalk.bold.green('✅ DATA FETCH COMPLETE!'));

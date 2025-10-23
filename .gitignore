@@ -3,6 +3,10 @@ node_modules/
 
 # Output files (can be regenerated)
 output/
+# Exception: Keep change-history.json for historical tracking
+!output/change-history.json
+# Ignore previous snapshot (internal comparison file)
+output/.previous-snapshot.json
 
 # IDE and editor files
 .vscode/
