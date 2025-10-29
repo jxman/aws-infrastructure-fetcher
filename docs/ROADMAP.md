@@ -4,13 +4,13 @@ This document outlines planned features and improvements for the AWS Infrastruct
 
 ---
 
-## Current Version: 1.6.0 (2025-10-20)
+## Current Version: 1.8.0 (2025-10-29)
 
 ### Recently Completed ✅
-- CloudFront distribution integration for global data access
-- Automatic cache invalidation after updates
-- Enhanced SNS notifications with distribution status
-- Dual storage strategy (source + distribution buckets)
+- AWS What's New RSS Feed Fetcher (separate Lambda function)
+- Handler rename for multi-function consistency (infra-data-handler.js)
+- Removed CloudFront manual invalidation (cost optimization)
+- Natural cache TTL strategy (5-minute CloudFront TTL)
 
 ---
 
@@ -140,6 +140,22 @@ This document outlines planned features and improvements for the AWS Infrastruct
 
 ## Completed Features
 
+### v1.8.0 (2025-10-29)
+- ✅ AWS What's New RSS Feed Fetcher (separate Lambda function)
+- ✅ Handler rename for multi-function consistency (infra-data-handler.js)
+- ✅ Removed CloudFront manual invalidation (cost optimization)
+- ✅ Natural cache TTL strategy (5-minute CloudFront TTL)
+- ✅ RSS XML parsing with xml2js and HTML sanitization with he
+- ✅ Daily EventBridge schedule at 3 AM UTC
+- ✅ SNS notifications with announcement preview
+- ✅ CloudWatch alarms for both Lambda functions
+
+### v1.7.0 (2025-10-29)
+- ✅ Removed CloudFront manual invalidation from infrastructure fetcher
+- ✅ Cost savings: $0.15/month → $0 (100% reduction)
+- ✅ Simpler architecture without CloudFront API dependencies
+- ✅ Natural 5-minute cache TTL for automatic refresh
+
 ### v1.6.0 (2025-10-20)
 - ✅ CloudFront distribution integration
 - ✅ Automatic cache invalidation
@@ -200,5 +216,5 @@ For detailed version history and release notes, see [CHANGELOG.md](./CHANGELOG.m
 
 ---
 
-**Last Updated**: 2025-10-20
-**Next Review**: After v1.7.0 release
+**Last Updated**: 2025-10-29
+**Next Review**: After CI/CD pipeline implementation

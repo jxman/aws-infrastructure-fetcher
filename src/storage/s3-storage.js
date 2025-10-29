@@ -8,7 +8,6 @@ const StorageInterface = require('./storage-interface');
 // Lazy-load AWS SDK clients only when S3Storage is instantiated
 // This prevents requiring these packages when using LocalStorage
 let S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand;
-let CloudFrontClient, CreateInvalidationCommand;
 
 class S3Storage extends StorageInterface {
   constructor(bucketName, prefix = 'aws-data') {
@@ -23,15 +22,7 @@ class S3Storage extends StorageInterface {
       CopyObjectCommand = s3Module.CopyObjectCommand;
     }
 
-    // Lazy-load CloudFront SDK only when S3Storage is actually used
-    if (!CloudFrontClient) {
-      const cfModule = require('@aws-sdk/client-cloudfront');
-      CloudFrontClient = cfModule.CloudFrontClient;
-      CreateInvalidationCommand = cfModule.CreateInvalidationCommand;
-    }
-
     this.s3Client = new S3Client({});
-    this.cloudFrontClient = new CloudFrontClient({});
     this.bucketName = bucketName;
     this.prefix = prefix;
   }
@@ -212,64 +203,6 @@ class S3Storage extends StorageInterface {
     return distributionResult;
   }
 
-  /**
-   * Invalidate CloudFront cache for distributed data files
-   * Ensures immediate cache refresh instead of waiting for TTL expiration
-   *
-   * @param {string} distributionId - CloudFront distribution ID
-   * @param {string} distributionPrefix - Key prefix to invalidate (e.g., 'data')
-   * @returns {Promise<Object>} Invalidation result
-   */
-  async invalidateCloudFrontCache(distributionId, distributionPrefix = 'data') {
-    // Skip if not configured
-    if (!distributionId) {
-      console.log('⏭️  CloudFront invalidation skipped (not configured)');
-      return {
-        invalidated: false,
-        reason: 'CloudFront distribution ID not configured'
-      };
-    }
-
-    try {
-      console.log('🔄 Creating CloudFront cache invalidation...');
-      console.log(`   Distribution ID: ${distributionId}`);
-      console.log(`   Path: /${distributionPrefix}/*`);
-
-      const command = new CreateInvalidationCommand({
-        DistributionId: distributionId,
-        InvalidationBatch: {
-          CallerReference: `data-update-${Date.now()}`,
-          Paths: {
-            Quantity: 1,
-            Items: [`/${distributionPrefix}/*`]
-          }
-        }
-      });
-
-      const response = await this.cloudFrontClient.send(command);
-
-      console.log(`✅ CloudFront cache invalidated: ID=${response.Invalidation.Id}`);
-      console.log(`   Status: ${response.Invalidation.Status}`);
-
-      return {
-        invalidated: true,
-        invalidationId: response.Invalidation.Id,
-        status: response.Invalidation.Status,
-        distributionId
-      };
-
-    } catch (error) {
-      console.error('⚠️  CloudFront invalidation failed (non-critical):', error.message);
-      console.error('   Cache will expire naturally based on TTL settings.');
-
-      return {
-        invalidated: false,
-        error: error.message,
-        errorType: error.name,
-        distributionId
-      };
-    }
-  }
 
   async loadCache() {
     try {

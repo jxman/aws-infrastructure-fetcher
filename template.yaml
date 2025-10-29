@@ -42,11 +42,6 @@ Parameters:
     Default: data
     Description: Key prefix in distribution bucket for data files
 
-  CloudFrontDistributionId:
-    Type: String
-    Default: EBTYLWOK3WVOK
-    Description: CloudFront distribution ID for cache invalidation
-
 Conditions:
   HasNotificationEmail: !Not [!Equals [!Ref NotificationEmail, '']]
   HasDistributionBucket: !Not [!Equals [!Ref DistributionBucketName, '']]
@@ -109,7 +104,7 @@ Resources:
     Properties:
       FunctionName: aws-data-fetcher
       CodeUri: ./
-      Handler: src/lambda/handler.handler
+      Handler: src/lambda/infra-data-handler.handler
       Runtime: nodejs20.x
       Description: Fetches AWS infrastructure data from SSM (complete with service mapping)
       Timeout: 180  # 3 minutes (77s runtime + buffer)
@@ -132,7 +127,6 @@ Resources:
           # Distribution configuration
           DISTRIBUTION_BUCKET: !Ref DistributionBucketName
           DISTRIBUTION_PREFIX: !Ref DistributionKeyPrefix
-          CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
 
           # Logging
           LOG_LEVEL: info
@@ -170,17 +164,6 @@ Resources:
                   - s3:PutObjectAcl
                 Resource:
                   - !Sub 'arn:aws:s3:::${DistributionBucketName}/${DistributionKeyPrefix}/*'
-          - !Ref AWS::NoValue
-        # CloudFront invalidation (only if configured)
-        - !If
-          - HasDistributionBucket
-          - Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cloudfront:CreateInvalidation
-                Resource:
-                  - !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistributionId}'
           - !Ref AWS::NoValue
       Events:
         # Daily EventBridge schedule
@@ -246,6 +229,121 @@ Resources:
       AlarmActions:
         - !Ref NotificationTopic
 
+  # NEW: Lambda Function for AWS What's New RSS Feed
+  WhatsNewFetcherFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: aws-whats-new-fetcher
+      CodeUri: ./
+      Handler: src/lambda/whats-new-handler.handler
+      Runtime: nodejs20.x
+      Description: Fetches latest 20 AWS What's New announcements from RSS feed
+      Timeout: 30  # 30 seconds (RSS fetch is fast)
+      MemorySize: 256  # Lightweight operation
+      Environment:
+        Variables:
+          # RSS Feed configuration
+          RSS_FEED_URL: https://aws.amazon.com/about-aws/whats-new/recent/feed/
+          OUTPUT_LIMIT: 20
+
+          # Source bucket configuration (for consistency)
+          S3_BUCKET_NAME: !Ref OutputBucket
+          S3_PREFIX: aws-data
+
+          # Distribution configuration
+          DISTRIBUTION_BUCKET: !Ref DistributionBucketName
+          DISTRIBUTION_PREFIX: !Ref DistributionKeyPrefix
+
+          # Notifications
+          SNS_TOPIC_ARN: !Ref NotificationTopic
+
+          # Logging
+          LOG_LEVEL: info
+          NODE_ENV: production
+      Policies:
+        # S3 write access for source bucket (for consistency)
+        - S3CrudPolicy:
+            BucketName: !Ref OutputBucket
+        # S3 write access for distribution bucket (only if configured)
+        - !If
+          - HasDistributionBucket
+          - Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource:
+                  - !Sub 'arn:aws:s3:::${DistributionBucketName}/${DistributionKeyPrefix}/*'
+          - !Ref AWS::NoValue
+        # SNS publish for notifications
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource:
+                - !Ref NotificationTopic
+      Events:
+        # Daily EventBridge schedule (3 AM UTC - 1 hour after infra fetcher)
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 3 * * ? *)
+            Description: Daily AWS What's New feed fetch
+            Enabled: true
+      Tags:
+        Project: aws-data-fetcher
+        ManagedBy: SAM
+        Component: whats-new-fetcher
+
+  # CloudWatch Log Group for What's New fetcher
+  WhatsNewFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${WhatsNewFetcherFunction}'
+      RetentionInDays: 7
+
+  # CloudWatch Alarm - What's New error detection
+  WhatsNewErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: aws-whats-new-fetcher-errors
+      AlarmDescription: Alert when What's New fetcher encounters errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WhatsNewFetcherFunction
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopic
+
+  # CloudWatch Alarm - What's New duration monitoring
+  WhatsNewDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: aws-whats-new-fetcher-duration
+      AlarmDescription: Alert when What's New fetcher execution exceeds expected duration
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10000  # 10 seconds
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WhatsNewFetcherFunction
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopic
+
 Outputs:
   OutputBucketName:
     Description: S3 bucket for output data and cache
@@ -276,3 +374,17 @@ Outputs:
     Value: !Ref NotificationTopic
     Export:
       Name: !Sub '${AWS::StackName}-NotificationTopic'
+
+  WhatsNewFunctionArn:
+    Description: What's New fetcher Lambda function ARN
+    Value: !GetAtt WhatsNewFetcherFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-WhatsNewFunctionArn'
+
+  WhatsNewFunctionName:
+    Description: What's New fetcher function name (for manual invocation)
+    Value: !Ref WhatsNewFetcherFunction
+
+  WhatsNewDataUrl:
+    Description: Public URL for AWS What's New data
+    Value: !Sub 'https://aws-services.synepho.com/${DistributionKeyPrefix}/aws-whats-new.json'

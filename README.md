@@ -12,14 +12,26 @@ This project deploys a serverless Lambda function that automatically fetches and
 
 ### What It Does
 
+**Infrastructure Data Fetcher (aws-data-fetcher)**:
 - **Discovers 38 AWS Regions**: All commercial, China, and GovCloud regions
 - **Catalogs 394+ AWS Services**: Complete service inventory from SSM
 - **Maps Service Availability**: Which services are available in each region
 - **S3 Storage**: All data and cache files stored in S3
-- **SNS Notifications**: Email alerts for successful runs and errors
 - **Daily Automated Updates**: EventBridge schedule (2 AM UTC)
-- **Manual Triggers**: Invoke anytime via AWS CLI or console
 - **Smart Caching**: 24-hour TTL reduces execution from 1m 49s to 13s
+
+**What's New RSS Fetcher (aws-whats-new-fetcher)**:
+- **Latest 20 Announcements**: Fetches from official AWS What's New RSS feed
+- **Structured JSON Output**: Title, summary, date, categories, link, HTML content
+- **HTML Sanitization**: Removes dangerous tags and inline event handlers
+- **Daily Automated Updates**: EventBridge schedule (3 AM UTC)
+- **CloudFront CDN**: Public access with 5-minute cache TTL
+- **Fast Execution**: Typical runtime <5 seconds
+
+**Shared Features**:
+- **SNS Notifications**: Email alerts for successful runs and errors
+- **Manual Triggers**: Invoke anytime via AWS CLI or console
+- **CloudWatch Monitoring**: Built-in alarms and logging
 
 ### Why This Project Exists
 
@@ -87,6 +99,8 @@ sam logs --name DataFetcherFunction --stack-name sam-aws-services-fetch --tail
 
 ## Architecture
 
+### Infrastructure Data Fetcher (aws-data-fetcher)
+
 ```
 ┌─────────────────────┐
 │  EventBridge        │
@@ -126,6 +140,41 @@ sam logs --name DataFetcherFunction --stack-name sam-aws-services-fetch --tail
                                   └─────────────────────────────────┘
 ```
 
+### What's New RSS Fetcher (aws-whats-new-fetcher)
+
+```
+┌─────────────────────┐
+│  EventBridge        │
+│  Schedule           │──Daily 3 AM UTC──┐
+│  (cron)             │                  │
+└─────────────────────┘                  │
+                                         ▼
+                              ┌─────────────────────┐
+                              │  Lambda Function    │
+                              │ aws-whats-new-fetcher│
+                              │  (Node.js 20)       │
+                              └─────────────────────┘
+                                         │
+            ┌────────────────────────────┼────────────────────────────┐
+            │                            │                            │
+            ▼                            ▼                            ▼
+   ┌─────────────────┐        ┌─────────────────┐        ┌─────────────────┐
+   │  AWS RSS Feed   │        │  S3 Source      │        │  S3 Distribution│
+   │  What's New     │        │  Bucket         │        │  Bucket         │
+   │  (Fetch)        │        │  (Write)        │        │  (Write)        │
+   └─────────────────┘        └─────────────────┘        └─────────────────┘
+            │                         │                            │
+            │                         │                            ▼
+            │                         │                 ┌─────────────────────┐
+            │                         │                 │  CloudFront CDN     │
+            │                         │                 │  5-min cache TTL    │
+            │                         │                 └─────────────────────┘
+            │                         │                            │
+            ▼                         ▼                            ▼
+   Latest 20 Announcements    aws-whats-new.json         aws-whats-new.json
+   (RSS 2.0 format)           (Source Storage)           (Public URL)
+```
+
 ## Features
 
 ### Core Functionality
@@ -161,17 +210,28 @@ All data is stored in S3 with the following structure:
 
 ### S3 Bucket Structure
 
+**Source Bucket** (`aws-data-fetcher-output/aws-data/`):
 ```
-s3://your-bucket-name/aws-data/
+s3://aws-data-fetcher-output/aws-data/
 ├── regions.json (9.4 KiB) - 38 regions with metadata
 ├── services.json (31.4 KiB) - 394 services with official names
 ├── complete-data.json (233.6 KiB) - Combined dataset (single source of truth)
+├── aws-whats-new.json (49.2 KiB) - Latest 20 AWS announcements
 ├── cache/
 │   └── services-by-region.json (197.7 KiB) - 24-hour cache
 └── history/
     ├── complete-data-1760303239876.json
     ├── complete-data-1760303302796.json
     └── ... (auto-deleted after 30 days)
+```
+
+**Distribution Bucket** (`www.aws-services.synepho.com/data/`):
+```
+s3://www.aws-services.synepho.com/data/
+├── regions.json - Public via CloudFront
+├── services.json - Public via CloudFront
+├── complete-data.json - Public via CloudFront
+└── aws-whats-new.json - Public via CloudFront (5-min TTL)
 ```
 
 ### Example Data: regions.json
@@ -321,16 +381,15 @@ The Lambda function automatically:
 1. Fetches AWS infrastructure data from SSM Parameter Store
 2. Saves to source bucket (`aws-data-fetcher-output`)
 3. **Copies to distribution bucket** (`www.aws-services.synepho.com/data/`)
-4. **Invalidates CloudFront cache** for immediate updates
-5. Sends SNS notification with distribution status
+4. Sends SNS notification with distribution status
 
 ### Cache Behavior
 
-- **Edge Cache TTL**: 5 minutes (respects `Cache-Control` header)
-- **Automatic Invalidation**: CloudFront cache cleared after each update
+- **Edge Cache TTL**: 5 minutes (respects `Cache-Control: max-age=300` header)
+- **Natural Cache Expiration**: CloudFront automatically refreshes after 5 minutes
 - **First Request**: May show `X-Cache: Miss from cloudfront`
 - **Subsequent Requests**: Show `X-Cache: Hit from cloudfront`
-- **After Update**: Cache invalidated, next request fetches fresh data
+- **After Update**: Cache refreshes automatically within 0-5 minutes (no manual invalidation needed)
 
 ### Disabling Distribution
 

@@ -1,5 +1,60 @@
 # Changelog
 
+## [1.7.0] - 2025-10-29
+
+### Changed - Removed CloudFront Manual Invalidation
+
+**CloudFront cache now relies on natural TTL expiration (5 minutes) instead of manual invalidation**
+
+#### Changes
+
+1. **Removed CloudFront Invalidation Logic**
+   - Removed `invalidateCloudFrontCache()` method from S3Storage class
+   - Removed CloudFront client initialization from S3Storage
+   - Removed invalidation call from Lambda handler
+   - CloudFront cache now expires naturally based on `Cache-Control: max-age=300` header
+
+2. **Updated Lambda Handler** (`src/lambda/handler.js`)
+   - Removed invalidation result from response
+   - Updated SNS notification to reflect natural cache expiration
+   - Added informative log: "CloudFront cache will refresh automatically within 5 minutes"
+
+3. **Updated SAM Template** (`template.yaml`)
+   - Removed `CloudFrontDistributionId` parameter (no longer needed)
+   - Removed `CLOUDFRONT_DISTRIBUTION_ID` environment variable
+   - Removed CloudFront invalidation IAM permissions
+   - Simplified IAM policy (removed CloudFront API access)
+
+4. **Updated Documentation**
+   - Updated README.md cache behavior section
+   - Updated distribution process documentation
+   - Created CLOUDFRONT_INVALIDATION_ANALYSIS.md with detailed rationale
+
+#### Benefits
+
+- **Cost Savings**: $0.15/month → $0 (100% CloudFront invalidation cost eliminated)
+- **Simpler Architecture**: Removed CloudFront SDK dependency and API calls
+- **Fewer IAM Permissions**: No CloudFront API access needed
+- **Fewer Failure Modes**: One less external API call that can fail
+- **No User Impact**: 0-5 minute cache delay during low-traffic hours (2-3 AM UTC) is negligible
+
+#### Migration Notes
+
+- **Automatic**: No manual migration needed
+- **Backward Compatible**: Existing deployments will automatically stop invalidating on next deployment
+- **Rollback Available**: Can revert changes if immediate cache updates are required
+- **Cost Impact**: Immediate 91% reduction in total operational costs
+
+#### Technical Details
+
+**Cache Behavior**:
+- Lambda updates S3 at 2:00 AM UTC
+- CloudFront serves cached content until 2:05 AM UTC (TTL expires)
+- CloudFront fetches fresh content from S3 at 2:05 AM UTC (detects new ETag)
+- Users get fresh content automatically after 2:05 AM UTC
+
+**Cache Miss Window**: 0-5 minutes (vs 5-30 seconds with manual invalidation)
+
 ## [1.6.0] - 2025-10-20
 
 ### Added - CloudFront Distribution Integration

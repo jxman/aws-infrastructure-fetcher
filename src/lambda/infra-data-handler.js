@@ -83,7 +83,6 @@ exports.handler = async (event, context) => {
 
     // Distribute to CloudFront-backed website bucket (non-critical)
     let distributionResult = null;
-    let invalidationResult = null;
 
     try {
       console.log('📤 Starting distribution to website bucket...');
@@ -95,16 +94,7 @@ exports.handler = async (event, context) => {
 
       if (distributionResult.distributed) {
         console.log(`✅ Distribution complete: ${distributionResult.successCount}/${distributionResult.totalFiles} files`);
-
-        // Invalidate CloudFront cache for immediate updates
-        invalidationResult = await fetcher.storage.invalidateCloudFrontCache(
-          process.env.CLOUDFRONT_DISTRIBUTION_ID,
-          process.env.DISTRIBUTION_PREFIX || 'data'
-        );
-
-        if (invalidationResult.invalidated) {
-          console.log(`✅ CloudFront cache invalidated successfully`);
-        }
+        console.log(`🕐 CloudFront cache will refresh automatically within 5 minutes (TTL: 300s)`);
       } else {
         console.log(`⏭️  Distribution skipped: ${distributionResult.reason || 'Unknown reason'}`);
       }
@@ -158,7 +148,7 @@ ${distributionResult?.distributed
   ? `✅ Distributed: ${distributionResult.successCount}/${distributionResult.totalFiles} files
 Distribution Bucket: ${distributionResult.distributionBucket}
 Public URL: https://aws-services.synepho.com/${distributionResult.distributionPrefix}/
-CloudFront Cache: ${invalidationResult?.invalidated ? `Invalidated (ID: ${invalidationResult.invalidationId})` : 'Not invalidated'}`
+CloudFront Cache: Automatic refresh (TTL: 5 minutes)`
   : `⏭️  Distribution skipped: ${distributionResult?.reason || 'Not configured'}`}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -191,12 +181,8 @@ CloudFront Cache: ${invalidationResult?.invalidated ? `Invalidated (ID: ${invali
             successCount: distributionResult.successCount,
             totalFiles: distributionResult.totalFiles,
             distributionBucket: distributionResult.distributionBucket,
-            distributionPrefix: distributionResult.distributionPrefix
-          } : undefined,
-          invalidation: invalidationResult ? {
-            invalidated: invalidationResult.invalidated,
-            invalidationId: invalidationResult.invalidationId,
-            status: invalidationResult.status
+            distributionPrefix: distributionResult.distributionPrefix,
+            cacheTTL: '300s (5 minutes)'
           } : undefined
         },
         requestId: context.requestId
