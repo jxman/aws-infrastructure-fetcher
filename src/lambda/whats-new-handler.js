@@ -1,7 +1,7 @@
 /**
  * AWS What's New RSS Feed Fetcher - Lambda Handler
  *
- * Fetches latest 20 AWS announcements from official RSS feed
+ * Fetches AWS announcements from the last 14 days (max 100 items)
  * Runs daily at 3 AM UTC
  *
  * @see src/core/whats-new-fetcher.js for business logic
@@ -84,7 +84,8 @@ exports.handler = async (event, context) => {
     event,
     requestId: context.requestId,
     rssUrl: process.env.RSS_FEED_URL,
-    outputLimit: process.env.OUTPUT_LIMIT,
+    daysToInclude: process.env.DAYS_TO_INCLUDE,
+    maxItems: process.env.MAX_ITEMS,
     sourceBucket: process.env.S3_BUCKET_NAME,
     distributionBucket: process.env.DISTRIBUTION_BUCKET
   });
@@ -92,9 +93,10 @@ exports.handler = async (event, context) => {
   try {
     // Create fetcher with configuration from environment
     const rssUrl = process.env.RSS_FEED_URL || 'https://aws.amazon.com/about-aws/whats-new/recent/feed/';
-    const outputLimit = parseInt(process.env.OUTPUT_LIMIT || '20', 10);
+    const daysToInclude = parseInt(process.env.DAYS_TO_INCLUDE || '14', 10);
+    const maxItems = parseInt(process.env.MAX_ITEMS || '100', 10);
 
-    const fetcher = new WhatsNewFetcher(rssUrl, outputLimit);
+    const fetcher = new WhatsNewFetcher(rssUrl, daysToInclude, maxItems);
 
     // Fetch and parse RSS feed
     const data = await fetcher.run();

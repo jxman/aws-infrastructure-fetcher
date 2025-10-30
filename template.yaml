@@ -237,14 +237,15 @@ Resources:
       CodeUri: ./
       Handler: src/lambda/whats-new-handler.handler
       Runtime: nodejs20.x
-      Description: Fetches latest 20 AWS What's New announcements from RSS feed
+      Description: Fetches AWS What's New announcements from last 14 days (max 100 items)
       Timeout: 30  # 30 seconds (RSS fetch is fast)
       MemorySize: 256  # Lightweight operation
       Environment:
         Variables:
           # RSS Feed configuration
           RSS_FEED_URL: https://aws.amazon.com/about-aws/whats-new/recent/feed/
-          OUTPUT_LIMIT: 20
+          DAYS_TO_INCLUDE: 14
+          MAX_ITEMS: 100
 
           # Source bucket configuration (for consistency)
           S3_BUCKET_NAME: !Ref OutputBucket
@@ -285,12 +286,30 @@ Resources:
               Resource:
                 - !Ref NotificationTopic
       Events:
-        # Daily EventBridge schedule (3 AM UTC - 1 hour after infra fetcher)
-        DailySchedule:
+        # Four times daily EventBridge schedule (every 6 hours)
+        Schedule2AM:
           Type: Schedule
           Properties:
-            Schedule: cron(0 3 * * ? *)
-            Description: Daily AWS What's New feed fetch
+            Schedule: cron(0 2 * * ? *)
+            Description: AWS What's New feed fetch - 2 AM UTC
+            Enabled: true
+        Schedule8AM:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 8 * * ? *)
+            Description: AWS What's New feed fetch - 8 AM UTC
+            Enabled: true
+        Schedule2PM:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 14 * * ? *)
+            Description: AWS What's New feed fetch - 2 PM UTC
+            Enabled: true
+        Schedule8PM:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 20 * * ? *)
+            Description: AWS What's New feed fetch - 8 PM UTC
             Enabled: true
       Tags:
         Project: aws-data-fetcher

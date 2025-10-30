@@ -7,6 +7,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.0] - 2025-10-30
+
+### Changed - What's New Fetcher: Increased Frequency
+
+**Schedule Update**: What's New fetcher now runs **4 times daily** instead of once daily.
+
+**New Schedule** (evenly spaced every 6 hours):
+
+- 2 AM UTC
+- 8 AM UTC
+- 2 PM UTC
+- 8 PM UTC
+
+**Previous Schedule**:
+
+- 3 AM UTC (once daily)
+
+**Rationale**:
+
+- More timely updates throughout the day
+- Better coverage for time-sensitive AWS announcements
+- Ensures users see new announcements within 6 hours of publication
+- Minimal cost increase (~$0.0012/month total operational cost)
+
+**Implementation**:
+
+- `template.yaml`: Replaced single `DailySchedule` with four separate schedules
+  - Schedule2AM: `cron(0 2 * * ? *)`
+  - Schedule8AM: `cron(0 8 * * ? *)`
+  - Schedule2PM: `cron(0 14 * * ? *)`
+  - Schedule8PM: `cron(0 20 * * ? *)`
+- Each schedule creates its own EventBridge rule and Lambda permission
+- All schedules enabled by default
+
+### Changed - What's New Fetcher: Time-Based Filtering
+
+**Breaking Change**: What's New fetcher now uses time-based filtering instead of count-based.
+
+**Previous Behavior**:
+
+- Fetched latest 20 articles (count-based)
+- Configurable via `OUTPUT_LIMIT` environment variable
+
+**New Behavior**:
+
+- Fetches all articles from **last 14 days**
+- Safety cap at **100 items maximum** (whichever is smaller)
+- Configurable via `DAYS_TO_INCLUDE` and `MAX_ITEMS` environment variables
+
+**Rationale**:
+
+- More predictable and consistent data volume over time
+- Captures all announcements regardless of AWS announcement frequency
+- Better for tracking recent changes comprehensively
+- Prevents missing announcements during high-activity periods (e.g., re:Invent)
+
+**Implementation Details**:
+
+
+Changes in `src/core/whats-new-fetcher.js`:
+
+- Updated constructor: `outputLimit` → `daysToInclude` + `maxItems`
+- Added date threshold calculation (14 days ago)
+- Added time-based filtering before count-based cap
+- Enhanced logging with threshold dates and cap warnings
+- Updated metadata: added `daysIncluded`, `maxItemsCap`, `dateThreshold`
+- Version bumped to 1.1.0
+
+Changes in `src/lambda/whats-new-handler.js`:
+
+- Updated environment variable handling
+- Changed from `OUTPUT_LIMIT` (20) → `DAYS_TO_INCLUDE` (14) + `MAX_ITEMS` (100)
+- Updated documentation comments
+
+Changes in `template.yaml`:
+
+- Updated environment variables for WhatsNewFetcherFunction
+- Changed `OUTPUT_LIMIT: 20` → `DAYS_TO_INCLUDE: 14` + `MAX_ITEMS: 100`
+- Updated function description
+
+**Expected Output**:
+
+- Typical volume: 50-80 announcements per 14-day window
+- During quiet periods: May be as low as 20-30 announcements
+- During high activity (e.g., re:Invent): Capped at 100 announcements
+- Variable output size based on AWS announcement frequency
+
+**Testing**:
+
+- Verified with live RSS feed: 74 announcements within 14-day window
+- Confirmed date filtering logic works correctly
+- Validated metadata includes new fields
+
+---
+
 ## [1.8.0] - 2025-10-29
 
 ### Added - AWS What's New RSS Feed Fetcher
@@ -60,17 +155,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Architecture
 
-```
+```text
 ┌─────────────────────┐    ┌─────────────────────┐
 │  EventBridge        │    │  EventBridge        │
-│  2 AM UTC           │    │  3 AM UTC           │
+│  2 AM UTC           │    │  3 AM UTC (old)     │
 └──────────┬──────────┘    └──────────┬──────────┘
            │                          │
            ▼                          ▼
 ┌─────────────────────┐    ┌─────────────────────┐
 │  Lambda             │    │  Lambda             │
 │  infra-data-handler │    │  whats-new-handler  │
-│  (Infrastructure)   │    │  (RSS Feed)         │
+│  (Infrastructure)   │    │  (RSS Feed - 4x/day)│
 └──────────┬──────────┘    └──────────┬──────────┘
            │                          │
            ▼                          ▼

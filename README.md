@@ -21,10 +21,10 @@ This project deploys a serverless Lambda function that automatically fetches and
 - **Smart Caching**: 24-hour TTL reduces execution from 1m 49s to 13s
 
 **What's New RSS Fetcher (aws-whats-new-fetcher)**:
-- **Latest 20 Announcements**: Fetches from official AWS What's New RSS feed
+- **14-Day Time Window**: Fetches all announcements from last 14 days (max 100 items)
+- **4x Daily Updates**: Runs every 6 hours (2 AM, 8 AM, 2 PM, 8 PM UTC)
 - **Structured JSON Output**: Title, summary, date, categories, link, HTML content
 - **HTML Sanitization**: Removes dangerous tags and inline event handlers
-- **Daily Automated Updates**: EventBridge schedule (3 AM UTC)
 - **CloudFront CDN**: Public access with 5-minute cache TTL
 - **Fast Execution**: Typical runtime <5 seconds
 

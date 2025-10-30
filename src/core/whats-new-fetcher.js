@@ -11,9 +11,10 @@ const xml2js = require('xml2js');
 const he = require('he');
 
 class WhatsNewFetcher {
-  constructor(rssUrl = 'https://aws.amazon.com/about-aws/whats-new/recent/feed/', outputLimit = 20) {
+  constructor(rssUrl = 'https://aws.amazon.com/about-aws/whats-new/recent/feed/', daysToInclude = 14, maxItems = 100) {
     this.rssUrl = rssUrl;
-    this.outputLimit = outputLimit;
+    this.daysToInclude = daysToInclude;
+    this.maxItems = maxItems;
     this.parser = new xml2js.Parser();
   }
 
@@ -96,7 +97,12 @@ class WhatsNewFetcher {
    * @returns {Object} Formatted output
    */
   processItems(items, feedLastBuildDate) {
-    console.log(`🔄 Processing items (limit: ${this.outputLimit})...`);
+    console.log(`🔄 Processing items (last ${this.daysToInclude} days, max ${this.maxItems} items)...`);
+
+    // Calculate date threshold (N days ago)
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - this.daysToInclude);
+    console.log(`   Date threshold: ${dateThreshold.toISOString()} (${this.daysToInclude} days ago)`);
 
     // Sort by publication date (most recent first)
     const sortedItems = items.sort((a, b) => {
@@ -105,8 +111,20 @@ class WhatsNewFetcher {
       return dateB - dateA; // Descending order
     });
 
-    // Take first N items
-    const limitedItems = sortedItems.slice(0, this.outputLimit);
+    // Filter items within time window
+    const recentItems = sortedItems.filter(item => {
+      const pubDate = new Date(item.pubDate?.[0] || 0);
+      return pubDate >= dateThreshold;
+    });
+
+    console.log(`   Items within ${this.daysToInclude}-day window: ${recentItems.length}`);
+
+    // Apply maximum item cap (safety limit)
+    const limitedItems = recentItems.slice(0, this.maxItems);
+
+    if (recentItems.length > this.maxItems) {
+      console.log(`   ⚠️  Capped at ${this.maxItems} items (${recentItems.length - this.maxItems} items excluded)`);
+    }
 
     // Process each item
     const announcements = limitedItems.map(item => {
@@ -126,8 +144,11 @@ class WhatsNewFetcher {
         source: this.rssUrl,
         feedLastBuildDate: feedLastBuildDate,
         tool: 'aws-whats-new-fetcher',
-        version: '1.0.0',
-        count: announcements.length
+        version: '1.1.0',
+        count: announcements.length,
+        daysIncluded: this.daysToInclude,
+        maxItemsCap: this.maxItems,
+        dateThreshold: dateThreshold.toISOString()
       },
       announcements
     };
