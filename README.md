@@ -231,6 +231,7 @@ s3://www.aws-services.synepho.com/data/
 ├── regions.json - Public via CloudFront
 ├── services.json - Public via CloudFront
 ├── complete-data.json - Public via CloudFront
+├── change-history.json - Public via CloudFront
 └── aws-whats-new.json - Public via CloudFront (5-min TTL)
 ```
 

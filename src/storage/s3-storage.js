@@ -125,7 +125,8 @@ class S3Storage extends StorageInterface {
     const files = [
       'complete-data.json',
       'regions.json',
-      'services.json'
+      'services.json',
+      'change-history.json'
     ];
 
     console.log('📤 Distributing data files to CloudFront-backed website bucket...');
