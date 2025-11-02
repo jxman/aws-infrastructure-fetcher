@@ -83,6 +83,7 @@ Resources:
     Properties:
       TopicName: aws-data-fetcher-notifications
       DisplayName: AWS Data Fetcher Notifications
+      KmsMasterKeyId: alias/aws/sns
       Tags:
         - Key: Project
           Value: aws-data-fetcher

@@ -5,6 +5,57 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
 [![AWS SDK](https://img.shields.io/badge/AWS%20SDK-v3.645.0-orange.svg)](https://aws.amazon.com/sdk-for-javascript/)
+[![Runtime](https://img.shields.io/badge/runtime-AWS%20Lambda-FF9900.svg)](https://aws.amazon.com/lambda/)
+[![Infrastructure](https://img.shields.io/badge/IaC-AWS%20SAM-232F3E.svg)](https://aws.amazon.com/serverless/sam/)
+
+## Technology Stack
+
+### Core Runtime & Languages
+
+- **Node.js** 20.x - JavaScript runtime
+- **AWS SDK v3** - AWS service clients (SSM, S3, SNS, CloudFront)
+- **JavaScript/ES6+** - Modern async/await patterns
+
+### AWS Cloud Services
+
+- **AWS Lambda** - Serverless compute (2 functions: data fetcher + What's New fetcher)
+- **Amazon S3** - Object storage for data files and cache
+- **AWS Systems Manager (SSM)** - Parameter Store for AWS infrastructure metadata
+- **Amazon SNS** - Email notifications with KMS encryption at rest
+- **Amazon EventBridge** - Scheduled function triggers (daily + 4x daily)
+- **Amazon CloudWatch** - Logs, metrics, and alarms
+- **AWS CloudFormation** - Infrastructure as Code via SAM
+
+### Infrastructure & Deployment
+
+- **AWS SAM (Serverless Application Model)** - Deployment framework
+- **CloudFormation** - Infrastructure provisioning
+- **IAM** - Role-based access control with least privilege policies
+
+### Dependencies & Libraries
+
+- **@aws-sdk/client-ssm** (^3.645.0) - SSM Parameter Store operations
+- **@aws-sdk/client-s3** (^3.645.0) - S3 read/write operations
+- **@aws-sdk/client-sns** (^3.645.0) - SNS publish notifications
+- **@aws-sdk/client-cloudfront** (^3.645.0) - CloudFront distribution management
+- **chalk** (^4.1.2) - Terminal output formatting (CLI mode)
+- **commander** (^11.1.0) - CLI argument parsing
+- **xml2js** (^0.6.2) - RSS feed XML parsing
+- **he** (^1.2.0) - HTML entity encoding/decoding
+
+### Security Features
+
+- **KMS Encryption** - SNS topics encrypted at rest
+- **IAM Least Privilege** - Function-specific permissions only
+- **S3 Bucket Security** - Public access blocked, versioning enabled
+- **HTML Sanitization** - Dangerous tags and scripts removed from RSS content
+
+### Monitoring & Observability
+
+- **CloudWatch Logs** - Function execution logs (7-day retention)
+- **CloudWatch Alarms** - Error detection and duration monitoring
+- **SNS Notifications** - Email alerts for errors and successful runs
+- **CloudWatch Metrics** - Lambda invocations, errors, duration
 
 ## Overview
 
