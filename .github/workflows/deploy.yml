@@ -1,0 +1,146 @@
+name: Deploy SAM Application
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test-and-validate:
+    name: Test and Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint || echo "No linting configured"
+        continue-on-error: true
+
+      - name: Run tests
+        run: npm test || echo "No tests configured"
+        continue-on-error: true
+
+      - name: Setup Python for SAM
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Validate SAM template
+        run: sam validate --lint
+
+      - name: Build SAM application
+        run: sam build
+
+  deploy:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+    needs: test-and-validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Python for SAM
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup AWS SAM CLI
+        uses: actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          role-session-name: GitHubActionsOIDCSession
+
+      - name: Build SAM application
+        run: sam build
+
+      - name: Deploy SAM application
+        run: |
+          sam deploy \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --stack-name sam-aws-services-fetch \
+            --capabilities CAPABILITY_IAM \
+            --resolve-s3 \
+            --region us-east-1 \
+            --parameter-overrides \
+              Environment=prod \
+              ProjectName=aws-services \
+              ServiceName=aws-infrastructure-data-fetcher \
+              GithubRepository=github.com/jxman/aws-infrastructure-fetcher
+
+      - name: Get Stack Outputs
+        id: stack-outputs
+        run: |
+          DATA_FUNCTION_NAME=$(aws cloudformation describe-stacks \
+            --stack-name sam-aws-services-fetch \
+            --query 'Stacks[0].Outputs[?OutputKey==`LambdaFunctionName`].OutputValue' \
+            --output text)
+          WHATS_NEW_FUNCTION_NAME=$(aws cloudformation describe-stacks \
+            --stack-name sam-aws-services-fetch \
+            --query 'Stacks[0].Outputs[?OutputKey==`WhatsNewFunctionName`].OutputValue' \
+            --output text)
+          OUTPUT_BUCKET=$(aws cloudformation describe-stacks \
+            --stack-name sam-aws-services-fetch \
+            --query 'Stacks[0].Outputs[?OutputKey==`OutputBucketName`].OutputValue' \
+            --output text)
+          echo "data-function-name=$DATA_FUNCTION_NAME" >> $GITHUB_OUTPUT
+          echo "whats-new-function-name=$WHATS_NEW_FUNCTION_NAME" >> $GITHUB_OUTPUT
+          echo "output-bucket=$OUTPUT_BUCKET" >> $GITHUB_OUTPUT
+
+      - name: Deployment Summary
+        run: |
+          echo "### Deployment Successful :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack Name:** sam-aws-services-fetch" >> $GITHUB_STEP_SUMMARY
+          echo "**Data Fetcher Function:** ${{ steps.stack-outputs.outputs.data-function-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**What's New Function:** ${{ steps.stack-outputs.outputs.whats-new-function-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Output Bucket:** ${{ steps.stack-outputs.outputs.output-bucket }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** us-east-1" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed at:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Resources" >> $GITHUB_STEP_SUMMARY
+          echo "- Data Fetcher: Runs daily at 2 AM UTC" >> $GITHUB_STEP_SUMMARY
+          echo "- What's New Fetcher: Runs 4x daily (2 AM, 8 AM, 2 PM, 8 PM UTC)" >> $GITHUB_STEP_SUMMARY
+          echo "- Public Data: https://aws-services.synepho.com/data/" >> $GITHUB_STEP_SUMMARY

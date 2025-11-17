@@ -46,6 +46,9 @@ temp/
 samconfig.toml
 packaged.yaml
 
+# OIDC setup artifacts (contains sensitive ARNs)
+scripts/oidc-role-arn.txt
+
 # Lambda test artifacts
 response.json
 *.response.json

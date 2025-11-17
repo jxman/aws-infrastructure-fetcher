@@ -3,6 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 Description: AWS SSM Data Fetcher - Lambda Deployment
 
 Parameters:
+  # Deployment configuration
   S3BucketName:
     Type: String
     Description: S3 bucket for storing output data and cache (must be globally unique)
@@ -42,9 +43,42 @@ Parameters:
     Default: data
     Description: Key prefix in distribution bucket for data files
 
+  # Tagging parameters
+  Environment:
+    Type: String
+    Default: prod
+    Description: Environment identifier (prod, staging, dev)
+    AllowedValues: [prod, staging, dev]
+
+  ProjectName:
+    Type: String
+    Default: aws-services
+    Description: Project name identifier
+
+  ServiceName:
+    Type: String
+    Default: aws-infrastructure-data-fetcher
+    Description: Service name identifier
+
+  GithubRepository:
+    Type: String
+    Default: github.com/jxman/aws-infrastructure-fetcher
+    Description: GitHub repository path
+
 Conditions:
   HasNotificationEmail: !Not [!Equals [!Ref NotificationEmail, '']]
   HasDistributionBucket: !Not [!Equals [!Ref DistributionBucketName, '']]
+
+# Global tags applied to all compatible resources (Lambda functions)
+Globals:
+  Function:
+    Tags:
+      Environment: !Ref Environment
+      ManagedBy: sam
+      Owner: John Xanthopoulos
+      Project: !Ref ProjectName
+      Service: !Ref ServiceName
+      GithubRepo: !Ref GithubRepository
 
 Resources:
   # S3 Bucket for outputs and cache
@@ -72,10 +106,22 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
       Tags:
-        - Key: Project
-          Value: aws-data-fetcher
+        - Key: Environment
+          Value: !Ref Environment
         - Key: ManagedBy
-          Value: SAM
+          Value: sam
+        - Key: Owner
+          Value: John Xanthopoulos
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: GithubRepo
+          Value: !Ref GithubRepository
+        - Key: Name
+          Value: aws-data-fetcher-output-bucket
+        - Key: SubService
+          Value: output-bucket
 
   # SNS Topic for notifications
   NotificationTopic:
@@ -85,10 +131,22 @@ Resources:
       DisplayName: AWS Data Fetcher Notifications
       KmsMasterKeyId: alias/aws/sns
       Tags:
-        - Key: Project
-          Value: aws-data-fetcher
+        - Key: Environment
+          Value: !Ref Environment
         - Key: ManagedBy
-          Value: SAM
+          Value: sam
+        - Key: Owner
+          Value: John Xanthopoulos
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: GithubRepo
+          Value: !Ref GithubRepository
+        - Key: Name
+          Value: aws-data-fetcher-notifications
+        - Key: SubService
+          Value: notification-topic
 
   # SNS Email Subscription
   NotificationSubscription:
@@ -180,8 +238,9 @@ Resources:
                 "forceRefresh": false
               }
       Tags:
-        Project: aws-data-fetcher
-        ManagedBy: SAM
+        Name: aws-data-fetcher-lambda
+        SubService: data-fetcher-lambda
+        # Globals tags automatically merged: Environment, ManagedBy, Owner, Project, Service, GithubRepo
 
   # CloudWatch Log Group (explicit creation for retention control)
   FunctionLogGroup:
@@ -189,6 +248,23 @@ Resources:
     Properties:
       LogGroupName: !Sub '/aws/lambda/${DataFetcherFunction}'
       RetentionInDays: 7
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: sam
+        - Key: Owner
+          Value: John Xanthopoulos
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: GithubRepo
+          Value: !Ref GithubRepository
+        - Key: Name
+          Value: data-fetcher-log-group
+        - Key: SubService
+          Value: data-fetcher-logs
 
   # CloudWatch Alarm - Error detection
   ErrorAlarm:
@@ -209,6 +285,23 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Ref NotificationTopic
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: sam
+        - Key: Owner
+          Value: John Xanthopoulos
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: GithubRepo
+          Value: !Ref GithubRepository
+        - Key: Name
+          Value: data-fetcher-error-alarm
+        - Key: SubService
+          Value: data-fetcher-error-monitoring
 
   # CloudWatch Alarm - Duration monitoring
   DurationAlarm:
@@ -229,6 +322,23 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Ref NotificationTopic
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: sam
+        - Key: Owner
+          Value: John Xanthopoulos
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: GithubRepo
+          Value: !Ref GithubRepository
+        - Key: Name
+          Value: data-fetcher-duration-alarm
+        - Key: SubService
+          Value: data-fetcher-duration-monitoring
 
   # NEW: Lambda Function for AWS What's New RSS Feed
   WhatsNewFetcherFunction:
@@ -313,9 +423,9 @@ Resources:
             Description: AWS What's New feed fetch - 8 PM UTC
             Enabled: true
       Tags:
-        Project: aws-data-fetcher
-        ManagedBy: SAM
-        Component: whats-new-fetcher
+        Name: aws-whats-new-fetcher-lambda
+        SubService: whats-new-fetcher-lambda
+        # Globals tags automatically merged: Environment, ManagedBy, Owner, Project, Service, GithubRepo
 
   # CloudWatch Log Group for What's New fetcher
   WhatsNewFunctionLogGroup:
@@ -323,6 +433,23 @@ Resources:
     Properties:
       LogGroupName: !Sub '/aws/lambda/${WhatsNewFetcherFunction}'
       RetentionInDays: 7
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: sam
+        - Key: Owner
+          Value: John Xanthopoulos
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: GithubRepo
+          Value: !Ref GithubRepository
+        - Key: Name
+          Value: whats-new-fetcher-log-group
+        - Key: SubService
+          Value: whats-new-logs
 
   # CloudWatch Alarm - What's New error detection
   WhatsNewErrorAlarm:
@@ -343,6 +470,23 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Ref NotificationTopic
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: sam
+        - Key: Owner
+          Value: John Xanthopoulos
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: GithubRepo
+          Value: !Ref GithubRepository
+        - Key: Name
+          Value: whats-new-error-alarm
+        - Key: SubService
+          Value: whats-new-error-monitoring
 
   # CloudWatch Alarm - What's New duration monitoring
   WhatsNewDurationAlarm:
@@ -363,6 +507,23 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Ref NotificationTopic
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: sam
+        - Key: Owner
+          Value: John Xanthopoulos
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: GithubRepo
+          Value: !Ref GithubRepository
+        - Key: Name
+          Value: whats-new-duration-alarm
+        - Key: SubService
+          Value: whats-new-duration-monitoring
 
 Outputs:
   OutputBucketName:
