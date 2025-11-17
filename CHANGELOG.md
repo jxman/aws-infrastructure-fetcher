@@ -7,6 +7,169 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added - GitHub Actions CI/CD Pipeline
+
+**Automated Deployment**: Complete GitHub Actions workflow for test, validate, and deploy operations.
+
+**OIDC Authentication**:
+- Bootstrap script for one-time IAM setup: `scripts/setup-oidc.sh`
+- IAM Role: `GithubActionsOIDC-AWSServicesDataFetcher-Role`
+- IAM Policy: `GithubActions-AWSServicesDataFetcher-Policy`
+- OIDC Provider: `token.actions.githubusercontent.com`
+- No long-lived AWS credentials in GitHub (federated authentication)
+
+**Workflow Features** (`.github/workflows/deploy.yml`):
+- **Test & Validate Job**: Runs on all branches and PRs
+  - Node.js 20.x setup with dependency caching
+  - npm install with dependency verification
+  - SAM template validation with linting
+  - SAM build verification
+- **Deploy Job**: Runs only on main branch pushes
+  - OIDC authentication with AWS
+  - SAM build and deployment
+  - Stack outputs and deployment summary
+  - Automatic parameter injection (Environment, ProjectName, ServiceName, GithubRepository)
+
+**Documentation**:
+- **Created**: `DEPLOYMENT.md` (14KB comprehensive deployment guide)
+  - Architecture overview with deployment pipeline diagram
+  - Prerequisites and initial setup instructions
+  - Bootstrap script execution steps
+  - GitHub repository configuration
+  - Automated and manual deployment procedures
+  - Monitoring and verification commands
+  - Troubleshooting guide with common issues
+  - IAM permission update synchronization pattern
+  - Security best practices and emergency procedures
+
+**Benefits**:
+- ✅ Automated deployment on every push to main
+- ✅ OIDC-based authentication (no AWS credentials in GitHub)
+- ✅ Repository isolation (dedicated IAM role per project)
+- ✅ Comprehensive testing before deployment
+- ✅ Full audit trail via CloudTrail and GitHub Actions logs
+
+### Added - Customer-Managed KMS Encryption
+
+**Security Compliance**: Resolved Snyk security issue SNYK-CC-AWS-415 (CloudWatch log group not encrypted with managed key).
+
+**KMS Key Configuration**:
+- **Resource**: `LogsKmsKey` (AWS::KMS::Key)
+- **Description**: KMS key for CloudWatch Logs encryption (aws-data-fetcher)
+- **Automatic Rotation**: Enabled (annual rotation for compliance)
+- **Key Alias**: `alias/sam-aws-services-fetch-logs`
+- **Key Policy**: Allows CloudWatch Logs service and root account access
+- **Resource Location**: `template.yaml` lines 160-213
+
+**CloudWatch Log Group Encryption**:
+- Both Lambda function log groups now use customer-managed KMS encryption:
+  - Data Fetcher: `/aws/lambda/aws-data-fetcher`
+  - What's New Fetcher: `/aws/lambda/aws-whats-new-fetcher`
+- 7-day retention with KMS encryption at rest
+- KmsKeyId property links log groups to customer-managed key
+
+**IAM Permissions**:
+- Added comprehensive KMS permissions to GitHub Actions IAM policy
+- **Live Policy**: Updated to version v2 with KMS permissions
+- **Bootstrap Script**: Updated `scripts/setup-oidc.sh` with matching KMS permissions
+- **Synchronization**: Both updates committed together to prevent drift
+
+**Security Benefits**:
+- ✅ Customer control over encryption keys and rotation
+- ✅ Meets security compliance requirements (SNYK-CC-AWS-415 resolved)
+- ✅ Automatic key rotation without downtime
+- ✅ CloudTrail audit trail for all KMS key usage
+- ✅ Granular permissions via key policy conditions
+- ✅ Data protection with customer-managed keys
+
+**Cost Impact**:
+- KMS Key: $1.00/month (single key for both log groups)
+- API Calls: ~$0.02/month (encrypt/decrypt operations)
+- Total KMS Cost: ~$1.02/month
+- **Total Project Cost**: ~$1.06/month (including Lambda, S3, SNS, and KMS)
+
+**Documentation**:
+- **Updated**: README.md - Added KMS encryption to Security Features section
+- **Updated**: README.md - Updated cost estimate from $0.04/month to $1.06/month
+- **Updated**: DEPLOYMENT.md - Added KMS verification commands and troubleshooting
+- **Updated**: CLAUDE.md - Added comprehensive "Security and Compliance" section
+
+### Changed - Complete AWS Tagging Compliance
+
+**100% Tagging Compliance**: All 10 AWS resources now have complete standardized tags.
+
+**Tagging Implementation**:
+- **SAM Template Parameters**: Added Environment, ProjectName, ServiceName, GithubRepository
+- **Globals Section**: Lambda function tags applied automatically via Globals
+- **Resource-Specific Tags**: All 10 resources have Name and SubService tags
+- **Tag Values**:
+  - Environment: `prod`
+  - ManagedBy: `sam` (for SAM-deployed resources)
+  - Owner: `John Xanthopoulos`
+  - Project: `aws-services`
+  - Service: `aws-infrastructure-data-fetcher`
+  - GithubRepo: `github.com/jxman/aws-infrastructure-fetcher`
+  - Name: Resource-specific names
+  - SubService: Component identifiers (e.g., `data-fetcher-function`, `whats-new-fetcher-function`)
+
+**Resources Tagged** (8/8 required tags):
+1. DataFetcherFunction (Lambda)
+2. WhatsNewFetcherFunction (Lambda)
+3. OutputBucket (S3)
+4. NotificationTopic (SNS)
+5. FunctionLogGroup (CloudWatch Logs)
+6. WhatsNewFunctionLogGroup (CloudWatch Logs)
+7. DataFetcherErrorAlarm (CloudWatch Alarm)
+8. DataFetcherDurationAlarm (CloudWatch Alarm)
+9. WhatsNewErrorAlarm (CloudWatch Alarm)
+10. WhatsNewDurationAlarm (CloudWatch Alarm)
+11. LogsKmsKey (KMS Key)
+12. LogsKmsKeyAlias (KMS Key Alias)
+
+**Standards Updated**:
+- **Global CLAUDE.md**: Added `ManagedBy = sam` to tagging standards
+- Also added support for `cloudformation`, `cdk`, and `pulumi` for future projects
+
+**Benefits**:
+- ✅ Complete cost allocation tracking by Environment, Project, Service
+- ✅ Resource discovery via AWS Resource Groups Tagging API
+- ✅ Tag-based IAM policies for access control
+- ✅ Compliance with organizational tagging standards
+- ✅ Easier resource management and automation
+
+### Changed - Documentation Updates
+
+**Comprehensive Documentation Refresh**: All project documentation updated to reflect KMS encryption, CI/CD pipeline, and tagging compliance.
+
+**README.md Updates**:
+- Security Features section: Added KMS encryption details
+- Monitoring section: Added KMS encryption and complete tagging notes
+- Cost Estimate: Updated from $0.04/month to $1.06/month
+- Deployment section: Now recommends GitHub Actions as primary deployment method
+- Added "CI/CD Ready" feature highlight
+
+**DEPLOYMENT.md Updates**:
+- Architecture section: Added KMS Key and KMS Key Alias to application resources
+- CloudWatch Log Groups: Updated description to indicate KMS encryption
+- Monitoring section: Added "Verify KMS Encryption" subsection with verification commands
+- Troubleshooting section: Added "KMS Key Permission Errors" troubleshooting guide
+- Complete guide for bootstrap script execution and GitHub Actions setup
+
+**CLAUDE.md Updates**:
+- Added comprehensive "Security and Compliance" section (130+ lines)
+- KMS Key Configuration details with key policy highlights
+- CloudWatch Log Group Encryption specifics
+- IAM Permissions for KMS with full policy JSON
+- Verification Commands for KMS encryption validation
+- Cost Impact breakdown for customer-managed KMS
+- Security Benefits checklist
+- Critical considerations when modifying KMS configuration
+- IAM Policy Synchronization pattern reference
+
+---
+
 ## [1.9.0] - 2025-10-30
 
 ### Changed - What's New Fetcher: Increased Frequency

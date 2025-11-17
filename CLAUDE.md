@@ -541,3 +541,141 @@ The `--include-service-mapping` flag uses intelligent caching to dramatically sp
 - ✅ Dual-source region discovery (SSM + EC2)
 - ✅ Service discovery from SSM
 - ✅ Region comparison and merging
+
+## Security and Compliance
+
+### KMS Encryption for CloudWatch Logs
+
+This project implements **customer-managed KMS encryption** for all CloudWatch Log Groups to meet security compliance requirements and resolve Snyk security issue SNYK-CC-AWS-415.
+
+#### KMS Key Configuration
+
+**Key Resource**: `LogsKmsKey` (AWS::KMS::Key)
+- **Description**: KMS key for CloudWatch Logs encryption (aws-data-fetcher)
+- **Automatic Rotation**: Enabled (annual rotation for compliance)
+- **Key Alias**: `alias/sam-aws-services-fetch-logs`
+- **Resource Name**: Defined in `template.yaml` lines 160-213
+
+**Key Policy Highlights**:
+```yaml
+Statement:
+  - Sid: Enable IAM User Permissions
+    Effect: Allow
+    Principal:
+      AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+    Action: 'kms:*'
+    Resource: '*'
+
+  - Sid: Allow CloudWatch Logs
+    Effect: Allow
+    Principal:
+      Service: !Sub 'logs.${AWS::Region}.amazonaws.com'
+    Action: ['kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*', ...]
+    Resource: '*'
+    Condition:
+      ArnLike:
+        'kms:EncryptionContext:aws:logs:arn':
+          !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/aws-*'
+```
+
+#### CloudWatch Log Group Encryption
+
+Both Lambda functions use KMS-encrypted log groups:
+
+1. **Data Fetcher Log Group** (`FunctionLogGroup`)
+   - Log Group: `/aws/lambda/aws-data-fetcher`
+   - Retention: 7 days
+   - Encryption: Customer-managed KMS key
+   - Resource: `template.yaml` lines 214-229
+
+2. **What's New Fetcher Log Group** (`WhatsNewFunctionLogGroup`)
+   - Log Group: `/aws/lambda/aws-whats-new-fetcher`
+   - Retention: 7 days
+   - Encryption: Customer-managed KMS key
+   - Resource: `template.yaml` lines 230-245
+
+#### IAM Permissions for KMS
+
+**GitHub Actions IAM Policy** includes comprehensive KMS permissions for deployment:
+
+```json
+{
+  "Sid": "KMSAccess",
+  "Effect": "Allow",
+  "Action": [
+    "kms:CreateKey",
+    "kms:DescribeKey",
+    "kms:GetKeyPolicy",
+    "kms:PutKeyPolicy",
+    "kms:EnableKeyRotation",
+    "kms:DisableKeyRotation",
+    "kms:GetKeyRotationStatus",
+    "kms:ScheduleKeyDeletion",
+    "kms:CancelKeyDeletion",
+    "kms:TagResource",
+    "kms:UntagResource",
+    "kms:ListResourceTags",
+    "kms:CreateAlias",
+    "kms:DeleteAlias",
+    "kms:UpdateAlias",
+    "kms:ListAliases"
+  ],
+  "Resource": "*",
+  "Condition": {
+    "StringEquals": {
+      "aws:RequestedRegion": "us-east-1"
+    }
+  }
+}
+```
+
+**Location**:
+- Live policy: IAM Policy `GithubActions-AWSServicesDataFetcher-Policy` (version v2)
+- Bootstrap script: `scripts/setup-oidc.sh` lines 394-426
+
+#### Verification Commands
+
+```bash
+# Verify KMS key details
+aws kms describe-key --key-id alias/sam-aws-services-fetch-logs
+
+# Check log group encryption status
+aws logs describe-log-groups \
+  --log-group-name-prefix /aws/lambda/aws- \
+  --query 'logGroups[*].{Name:logGroupName,KmsKeyId:kmsKeyId}'
+
+# Verify key rotation is enabled
+aws kms get-key-rotation-status --key-id alias/sam-aws-services-fetch-logs
+```
+
+#### Cost Impact
+
+Customer-managed KMS keys add approximately **$1.00/month** to operational costs:
+- **KMS Key**: $1.00/month (single key)
+- **API Calls**: ~$0.02/month (encrypt/decrypt operations)
+- **Total KMS Cost**: ~$1.02/month
+
+**Total Project Cost**: ~$1.06/month (including Lambda, S3, SNS, and KMS)
+
+#### Security Benefits
+
+- ✅ **Customer Control**: Full control over encryption keys and rotation
+- ✅ **Compliance**: Meets security compliance requirements (SNYK-CC-AWS-415 resolved)
+- ✅ **Automatic Rotation**: Annual key material rotation without downtime
+- ✅ **Audit Trail**: CloudTrail logs all KMS key usage
+- ✅ **Granular Permissions**: Least privilege access via key policy conditions
+- ✅ **Data Protection**: Logs encrypted at rest with customer-managed keys
+
+#### When Modifying KMS Configuration
+
+**Critical Considerations**:
+1. **Never delete the KMS key** - CloudWatch Logs will immediately fail
+2. **Schedule deletion** (7-30 days) if removal is necessary
+3. **Update key policy** instead of recreating the key
+4. **Test in non-prod environment** before production changes
+5. **Synchronize IAM permissions** between live policy and bootstrap script
+
+**IAM Policy Synchronization** (see global CLAUDE.md for full pattern):
+- Update live GitHub Actions IAM policy version
+- Update `scripts/setup-oidc.sh` with matching permissions
+- Commit both changes together to prevent drift

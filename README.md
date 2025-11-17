@@ -45,17 +45,21 @@
 
 ### Security Features
 
-- **KMS Encryption** - SNS topics encrypted at rest
+- **Customer-Managed KMS Encryption** - CloudWatch Logs encrypted with dedicated KMS key
+- **Automatic Key Rotation** - Annual rotation enabled for compliance
+- **SNS Topic Encryption** - Messages encrypted at rest with AWS-managed keys
 - **IAM Least Privilege** - Function-specific permissions only
 - **S3 Bucket Security** - Public access blocked, versioning enabled
 - **HTML Sanitization** - Dangerous tags and scripts removed from RSS content
+- **OIDC Authentication** - GitHub Actions deployment without long-lived credentials
 
 ### Monitoring & Observability
 
-- **CloudWatch Logs** - Function execution logs (7-day retention)
-- **CloudWatch Alarms** - Error detection and duration monitoring
+- **CloudWatch Logs** - Function execution logs (7-day retention, KMS encrypted)
+- **CloudWatch Alarms** - Error detection and duration monitoring (4 alarms)
 - **SNS Notifications** - Email alerts for errors and successful runs
 - **CloudWatch Metrics** - Lambda invocations, errors, duration
+- **Complete Tagging** - 100% compliance with AWS tagging standards (8 required tags)
 
 ## Overview
 
@@ -91,8 +95,9 @@ Originally created to troubleshoot missing AWS regions (specifically `eu-west-3`
 - **Authoritative Data Source**: Direct from AWS SSM Parameter Store
 - **Always Current**: Automatically updates daily
 - **Zero Maintenance**: Serverless architecture with intelligent caching
-- **Cost-Effective**: ~$0.04/month total operational cost
+- **Cost-Effective**: ~$1.06/month total operational cost (Lambda + KMS + storage)
 - **Production Ready**: Includes monitoring, alarms, and notifications
+- **CI/CD Ready**: GitHub Actions workflow with OIDC authentication
 
 ## Quick Start
 
@@ -103,27 +108,40 @@ Originally created to troubleshoot missing AWS regions (specifically `eu-west-3`
 - **SAM CLI** installed ([Installation Guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html))
 - **Node.js** >= 20.0.0 ([Download](https://nodejs.org/))
 
-### Deploy to AWS Lambda (5 minutes)
+### Deploy via GitHub Actions (Recommended)
+
+**Automated CI/CD deployment with OIDC authentication - no AWS credentials in GitHub!**
+
+```bash
+# 1. Run bootstrap script (one-time setup)
+bash scripts/setup-oidc.sh
+
+# 2. Add AWS_ROLE_ARN secret to GitHub repository settings
+# (Role ARN provided by bootstrap script)
+
+# 3. Push to main branch - deployment happens automatically!
+git push origin main
+
+# Monitor deployment at:
+# https://github.com/YOUR-ORG/aws-infrastructure-fetcher/actions
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup instructions.
+
+### Deploy Manually (Alternative)
 
 ```bash
 # 1. Clone or navigate to project directory
-cd /path/to/nodejs-aws-fetcher
+cd /path/to/aws-services-fetcher
 
 # 2. Install dependencies
 npm install
 
-# 3. Build Lambda package
+# 3. Build and deploy
 sam build
+sam deploy --no-confirm-changeset
 
-# 4. Deploy to AWS (guided - first time only)
-sam deploy --guided
-
-# Follow prompts:
-# - Stack Name: sam-aws-services-fetch
-# - AWS Region: us-east-1 (or your preferred region)
-# - S3 Bucket: YOUR-UNIQUE-BUCKET-NAME (must be globally unique!)
-# - Schedule: cron(0 2 * * ? *) (daily at 2 AM UTC)
-# - Confirm all changes: Y
+# Stack will be created/updated automatically
 ```
 
 ### Test Your Deployment

@@ -46,8 +46,10 @@ This guide covers deploying the AWS Infrastructure Data Fetcher using GitHub Act
 - 2 Lambda Functions (data-fetcher, whats-new-fetcher)
 - S3 Bucket (aws-data-fetcher-output)
 - SNS Topic (notifications)
+- KMS Key (customer-managed for CloudWatch Logs encryption)
+- KMS Key Alias (alias/sam-aws-services-fetch-logs)
 - 4 CloudWatch Alarms
-- 2 CloudWatch Log Groups
+- 2 CloudWatch Log Groups (KMS encrypted)
 - EventBridge Rules (scheduled triggers)
 
 ---
@@ -339,6 +341,31 @@ aws events list-rules \
   --output table
 ```
 
+### Verify KMS Encryption
+
+```bash
+# List KMS keys for the stack
+aws kms list-aliases \
+  --query "Aliases[?contains(AliasName, 'sam-aws-services-fetch')].{Alias:AliasName,KeyId:TargetKeyId}" \
+  --output table
+
+# Get detailed KMS key information
+aws kms describe-key \
+  --key-id alias/sam-aws-services-fetch-logs \
+  --query 'KeyMetadata.{KeyId:KeyId,State:KeyState,Rotation:KeyRotationStatus,CreationDate:CreationDate}' \
+  --output table
+
+# Verify log groups are encrypted with KMS
+aws logs describe-log-groups \
+  --log-group-name-prefix /aws/lambda/aws- \
+  --query 'logGroups[*].{Name:logGroupName,KmsKeyId:kmsKeyId,Retention:retentionInDays}' \
+  --output table
+
+# Check KMS key rotation status
+aws kms get-key-rotation-status \
+  --key-id alias/sam-aws-services-fetch-logs
+```
+
 ---
 
 ## Troubleshooting
@@ -404,6 +431,38 @@ aws events list-rules \
    aws cloudformation describe-stacks \
      --stack-name sam-aws-services-fetch \
      --query 'Stacks[0].Parameters'
+   ```
+
+### Issue: KMS Key Permission Errors
+
+**Symptoms:**
+- "Access denied" errors when writing to CloudWatch Logs
+- "KMS.DisabledException" or "KMS.InvalidStateException" errors
+
+**Solution:**
+1. Verify KMS key is enabled and has correct policy:
+   ```bash
+   aws kms describe-key --key-id alias/sam-aws-services-fetch-logs
+   ```
+
+2. Check Lambda execution role has permission to use the KMS key:
+   ```bash
+   aws iam list-attached-role-policies \
+     --role-name sam-aws-services-fetch-DataFetcherFunctionRole-* \
+     --output table
+   ```
+
+3. Verify KMS key policy allows CloudWatch Logs service:
+   ```bash
+   aws kms get-key-policy \
+     --key-id alias/sam-aws-services-fetch-logs \
+     --policy-name default \
+     --query Policy --output text | jq
+   ```
+
+4. If key is disabled, enable it:
+   ```bash
+   aws kms enable-key --key-id alias/sam-aws-services-fetch-logs
    ```
 
 ---
