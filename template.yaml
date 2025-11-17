@@ -157,6 +157,61 @@ Resources:
       TopicArn: !Ref NotificationTopic
       Endpoint: !Ref NotificationEmail
 
+  # KMS Key for CloudWatch Logs encryption
+  LogsKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for CloudWatch Logs encryption (aws-data-fetcher)
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow CloudWatch Logs
+            Effect: Allow
+            Principal:
+              Service: !Sub 'logs.${AWS::Region}.amazonaws.com'
+            Action:
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey*'
+              - 'kms:CreateGrant'
+              - 'kms:DescribeKey'
+            Resource: '*'
+            Condition:
+              ArnLike:
+                'kms:EncryptionContext:aws:logs:arn': !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/aws-*'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: sam
+        - Key: Owner
+          Value: John Xanthopoulos
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: GithubRepo
+          Value: !Ref GithubRepository
+        - Key: Name
+          Value: cloudwatch-logs-kms-key
+        - Key: SubService
+          Value: logs-encryption
+
+  # KMS Key Alias
+  LogsKmsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/${AWS::StackName}-logs'
+      TargetKeyId: !Ref LogsKmsKey
+
   # Lambda Function
   DataFetcherFunction:
     Type: AWS::Serverless::Function
@@ -248,6 +303,7 @@ Resources:
     Properties:
       LogGroupName: !Sub '/aws/lambda/${DataFetcherFunction}'
       RetentionInDays: 7
+      KmsKeyId: !GetAtt LogsKmsKey.Arn
       Tags:
         - Key: Environment
           Value: !Ref Environment
@@ -433,6 +489,7 @@ Resources:
     Properties:
       LogGroupName: !Sub '/aws/lambda/${WhatsNewFetcherFunction}'
       RetentionInDays: 7
+      KmsKeyId: !GetAtt LogsKmsKey.Arn
       Tags:
         - Key: Environment
           Value: !Ref Environment

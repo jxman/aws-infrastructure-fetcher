@@ -391,6 +391,34 @@ create_iam_policy() {
         "cloudfront:ListInvalidations"
       ],
       "Resource": "arn:aws:cloudfront::${AWS_ACCOUNT_ID}:distribution/EBTYLWOK3WVOK"
+    },
+    {
+      "Sid": "KMSAccess",
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateKey",
+        "kms:DescribeKey",
+        "kms:GetKeyPolicy",
+        "kms:PutKeyPolicy",
+        "kms:EnableKeyRotation",
+        "kms:DisableKeyRotation",
+        "kms:GetKeyRotationStatus",
+        "kms:ScheduleKeyDeletion",
+        "kms:CancelKeyDeletion",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:ListResourceTags",
+        "kms:CreateAlias",
+        "kms:DeleteAlias",
+        "kms:UpdateAlias",
+        "kms:ListAliases"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "${AWS_REGION}"
+        }
+      }
     }
   ]
 }
