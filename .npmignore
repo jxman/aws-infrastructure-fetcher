@@ -1,0 +1,76 @@
+# .npmignore - Files to exclude from npm pack (used by AWS SAM build)
+# This file controls which files are excluded when creating the Lambda deployment package
+
+# Documentation (not needed at runtime)
+*.md
+docs/
+README.md
+CHANGELOG.md
+CLAUDE.md
+DEPLOYMENT.md
+
+# Scripts (not needed at runtime)
+scripts/
+*.sh
+
+# Configuration examples
+samconfig.toml.example
+*.example
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows files
+Thumbs.db
+ehthumbs.db
+
+# Output directory (local development only)
+output/
+
+# Build artifacts
+.aws-sam/
+packaged.yaml
+
+# Git files
+.git/
+.gitignore
+.github/
+
+# Environment files
+.env*
+
+# Test files
+tests/
+__tests__/
+*.test.js
+*.spec.js
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# IDE specific
+*.sublime-*
+.project
+.classpath
+.settings/
+
+# Coverage reports
+coverage/
+.nyc_output/
+
+# Template file (not needed at runtime)
+template.yaml
+
+# samconfig (not needed at runtime)
+samconfig.toml

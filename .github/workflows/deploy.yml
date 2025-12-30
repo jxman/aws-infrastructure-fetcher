@@ -124,9 +124,154 @@ jobs:
             --stack-name sam-aws-services-fetch \
             --query 'Stacks[0].Outputs[?OutputKey==`OutputBucketName`].OutputValue' \
             --output text)
+          SNS_TOPIC_ARN=$(aws cloudformation describe-stacks \
+            --stack-name sam-aws-services-fetch \
+            --query 'Stacks[0].Outputs[?OutputKey==`NotificationTopicArn`].OutputValue' \
+            --output text)
           echo "data-function-name=$DATA_FUNCTION_NAME" >> $GITHUB_OUTPUT
           echo "whats-new-function-name=$WHATS_NEW_FUNCTION_NAME" >> $GITHUB_OUTPUT
           echo "output-bucket=$OUTPUT_BUCKET" >> $GITHUB_OUTPUT
+          echo "sns-topic-arn=$SNS_TOPIC_ARN" >> $GITHUB_OUTPUT
+
+      - name: Test Data Fetcher Lambda Invocation
+        id: test-data-fetcher
+        run: |
+          echo "Invoking Data Fetcher Lambda function..."
+          INVOKE_OUTPUT=$(aws lambda invoke \
+            --function-name ${{ steps.stack-outputs.outputs.data-function-name }} \
+            --invocation-type RequestResponse \
+            --payload '{"includeServiceMapping": false, "forceRefresh": true}' \
+            --log-type Tail \
+            /tmp/lambda-response.json 2>&1)
+
+          # Check for errors in invocation
+          if echo "$INVOKE_OUTPUT" | grep -q "FunctionError"; then
+            echo "test-result=failed" >> $GITHUB_OUTPUT
+            echo "error-message=Lambda function returned an error" >> $GITHUB_OUTPUT
+            cat /tmp/lambda-response.json
+            exit 1
+          fi
+
+          # Extract log output (base64 encoded)
+          LOG_RESULT=$(echo "$INVOKE_OUTPUT" | jq -r '.LogResult // empty' | base64 -d || echo "No logs")
+
+          echo "test-result=success" >> $GITHUB_OUTPUT
+          echo "Lambda execution completed successfully"
+          echo "Response:"
+          cat /tmp/lambda-response.json
+
+      - name: Verify S3 Output Files
+        id: verify-s3-files
+        run: |
+          echo "Verifying S3 output files..."
+          BUCKET=${{ steps.stack-outputs.outputs.output-bucket }}
+
+          # Check for required files
+          REQUIRED_FILES=(
+            "aws-data/complete-data.json"
+            "aws-data/regions.json"
+            "aws-data/services.json"
+          )
+
+          ALL_FILES_PRESENT=true
+          MISSING_FILES=""
+
+          for file in "${REQUIRED_FILES[@]}"; do
+            if aws s3api head-object --bucket "$BUCKET" --key "$file" &>/dev/null; then
+              echo "✅ Found: $file"
+              # Get file size and last modified
+              SIZE=$(aws s3api head-object --bucket "$BUCKET" --key "$file" --query 'ContentLength' --output text)
+              MODIFIED=$(aws s3api head-object --bucket "$BUCKET" --key "$file" --query 'LastModified' --output text)
+              echo "   Size: $SIZE bytes, Last Modified: $MODIFIED"
+            else
+              echo "❌ Missing: $file"
+              ALL_FILES_PRESENT=false
+              MISSING_FILES="$MISSING_FILES $file"
+            fi
+          done
+
+          if [ "$ALL_FILES_PRESENT" = true ]; then
+            echo "s3-verification=success" >> $GITHUB_OUTPUT
+          else
+            echo "s3-verification=failed" >> $GITHUB_OUTPUT
+            echo "missing-files=$MISSING_FILES" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Check CloudWatch Logs
+        id: check-logs
+        run: |
+          echo "Checking CloudWatch Logs for successful execution..."
+          LOG_GROUP="/aws/lambda/${{ steps.stack-outputs.outputs.data-function-name }}"
+
+          # Wait a few seconds for logs to be available
+          sleep 5
+
+          # Get the most recent log stream
+          LATEST_STREAM=$(aws logs describe-log-streams \
+            --log-group-name "$LOG_GROUP" \
+            --order-by LastEventTime \
+            --descending \
+            --max-items 1 \
+            --query 'logStreams[0].logStreamName' \
+            --output text)
+
+          if [ -z "$LATEST_STREAM" ] || [ "$LATEST_STREAM" = "None" ]; then
+            echo "⚠️  No log streams found yet"
+            echo "log-check=warning" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Latest log stream: $LATEST_STREAM"
+
+          # Get recent log events
+          LOG_EVENTS=$(aws logs get-log-events \
+            --log-group-name "$LOG_GROUP" \
+            --log-stream-name "$LATEST_STREAM" \
+            --limit 50 \
+            --query 'events[*].message' \
+            --output text)
+
+          # Check for success indicators
+          if echo "$LOG_EVENTS" | grep -q "Data fetch completed successfully"; then
+            echo "✅ Found success message in logs"
+            echo "log-check=success" >> $GITHUB_OUTPUT
+          elif echo "$LOG_EVENTS" | grep -qi "error"; then
+            echo "❌ Found error in logs"
+            echo "log-check=failed" >> $GITHUB_OUTPUT
+            echo "Recent logs:"
+            echo "$LOG_EVENTS"
+            exit 1
+          else
+            echo "⚠️  Could not verify success/failure from logs"
+            echo "log-check=warning" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify SNS Notification
+        id: verify-sns
+        continue-on-error: true
+        run: |
+          echo "Verifying SNS notification..."
+
+          # Check SNS publish metrics (last 5 minutes)
+          PUBLISH_COUNT=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/SNS \
+            --metric-name NumberOfMessagesPublished \
+            --dimensions Name=TopicName,Value=$(basename ${{ steps.stack-outputs.outputs.sns-topic-arn }}) \
+            --start-time $(date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:%S) \
+            --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+            --period 300 \
+            --statistics Sum \
+            --query 'Datapoints[0].Sum' \
+            --output text)
+
+          if [ "$PUBLISH_COUNT" != "None" ] && [ "$PUBLISH_COUNT" != "" ]; then
+            echo "✅ SNS published $PUBLISH_COUNT message(s) in the last 5 minutes"
+            echo "sns-verification=success" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  No SNS messages detected in CloudWatch metrics (may take a few minutes to appear)"
+            echo "sns-verification=warning" >> $GITHUB_OUTPUT
+          fi
 
       - name: Deployment Summary
         run: |
@@ -139,6 +284,40 @@ jobs:
           echo "**Region:** us-east-1" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Deployed at:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Post-Deployment Tests :test_tube:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Lambda Function Test
+          if [ "${{ steps.test-data-fetcher.outputs.test-result }}" = "success" ]; then
+            echo "✅ **Lambda Invocation**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Lambda Invocation**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # S3 Files Verification
+          if [ "${{ steps.verify-s3-files.outputs.s3-verification }}" = "success" ]; then
+            echo "✅ **S3 Output Files**: All required files present" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **S3 Output Files**: Missing files -${{ steps.verify-s3-files.outputs.missing-files }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # CloudWatch Logs Check
+          if [ "${{ steps.check-logs.outputs.log-check }}" = "success" ]; then
+            echo "✅ **CloudWatch Logs**: Success message found" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.check-logs.outputs.log-check }}" = "warning" ]; then
+            echo "⚠️ **CloudWatch Logs**: Could not verify (check manually)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **CloudWatch Logs**: Errors detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # SNS Notification Verification
+          if [ "${{ steps.verify-sns.outputs.sns-verification }}" = "success" ]; then
+            echo "✅ **SNS Notifications**: Message(s) published successfully" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.verify-sns.outputs.sns-verification }}" = "warning" ]; then
+            echo "⚠️ **SNS Notifications**: No messages detected yet (may take a few minutes)" >> $GITHUB_STEP_SUMMARY
+          fi
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Resources" >> $GITHUB_STEP_SUMMARY
           echo "- Data Fetcher: Runs daily at 2 AM UTC" >> $GITHUB_STEP_SUMMARY

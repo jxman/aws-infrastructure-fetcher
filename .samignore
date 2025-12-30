@@ -1,0 +1,83 @@
+# .samignore - Files to exclude from Lambda deployment package
+# This file tells AWS SAM which files to exclude when building the deployment package
+# Similar to .gitignore but for SAM builds
+
+# Documentation (not needed at runtime)
+*.md
+docs/**
+README*
+CHANGELOG*
+CLAUDE*
+DEPLOYMENT*
+
+# Scripts (not needed at runtime)
+scripts/**
+*.sh
+
+# Configuration examples
+samconfig.toml.example
+*.example
+
+# Development files
+.vscode/**
+.idea/**
+*.swp
+*.swo
+
+# macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows files
+Thumbs.db
+ehthumbs.db
+
+# Output directory (local development only)
+output/**
+
+# Build artifacts
+.aws-sam/**
+packaged.yaml
+
+# Git files
+.git/**
+.gitignore
+.github/**
+
+# Environment files
+.env*
+
+# Test files (if added later)
+tests/**
+__tests__/**
+*.test.js
+*.spec.js
+
+# Lock files (package.json is sufficient for Lambda)
+package-lock.json
+yarn.lock
+
+# Temporary files
+tmp/**
+temp/**
+*.tmp
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE specific
+*.sublime-*
+.project
+.classpath
+.settings/
+
+# Coverage reports
+coverage/**
+.nyc_output/**
+
+# Backup files
+*.backup
+*.bak
+*.orig

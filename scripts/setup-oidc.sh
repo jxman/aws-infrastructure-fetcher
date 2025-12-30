@@ -277,6 +277,7 @@ create_iam_policy() {
         "s3:GetBucketPublicAccessBlock",
         "s3:PutBucketPublicAccessBlock",
         "s3:GetObject",
+        "s3:HeadObject",
         "s3:PutObject",
         "s3:DeleteObject",
         "s3:GetObjectVersion",
@@ -318,6 +319,8 @@ create_iam_policy() {
         "logs:CreateLogGroup",
         "logs:DeleteLogGroup",
         "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "logs:GetLogEvents",
         "logs:PutRetentionPolicy",
         "logs:DeleteRetentionPolicy",
         "logs:TagLogGroup",
@@ -347,6 +350,20 @@ create_iam_policy() {
         "arn:aws:cloudwatch:${AWS_REGION}:${AWS_ACCOUNT_ID}:alarm:aws-data-fetcher-*",
         "arn:aws:cloudwatch:${AWS_REGION}:${AWS_ACCOUNT_ID}:alarm:aws-whats-new-fetcher-*"
       ]
+    },
+    {
+      "Sid": "CloudWatchMetricsAccess",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListMetrics"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "${AWS_REGION}"
+        }
+      }
     },
     {
       "Sid": "EventBridgeAccess",
