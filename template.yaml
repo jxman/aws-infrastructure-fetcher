@@ -79,6 +79,7 @@ Globals:
       Project: !Ref ProjectName
       Service: !Ref ServiceName
       GithubRepo: !Ref GithubRepository
+      BaseProject: aws-services
 
 Resources:
   # S3 Bucket for outputs and cache
@@ -118,6 +119,8 @@ Resources:
           Value: !Ref ServiceName
         - Key: GithubRepo
           Value: !Ref GithubRepository
+        - Key: BaseProject
+          Value: aws-services
         - Key: Name
           Value: aws-data-fetcher-output-bucket
         - Key: SubService
@@ -143,6 +146,8 @@ Resources:
           Value: !Ref ServiceName
         - Key: GithubRepo
           Value: !Ref GithubRepository
+        - Key: BaseProject
+          Value: aws-services
         - Key: Name
           Value: aws-data-fetcher-notifications
         - Key: SubService
@@ -200,6 +205,8 @@ Resources:
           Value: !Ref ServiceName
         - Key: GithubRepo
           Value: !Ref GithubRepository
+        - Key: BaseProject
+          Value: aws-services
         - Key: Name
           Value: cloudwatch-logs-kms-key
         - Key: SubService
@@ -215,11 +222,15 @@ Resources:
   # Lambda Function
   DataFetcherFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: nodejs22.x
     Properties:
       FunctionName: aws-data-fetcher
       CodeUri: ./
       Handler: src/lambda/infra-data-handler.handler
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
+      Architectures:
+        - arm64  # ARM64 (Graviton2) for 20% cost savings
       Description: Fetches AWS infrastructure data from SSM (complete with service mapping)
       Timeout: 180  # 3 minutes (77s runtime + buffer)
       MemorySize: 512
@@ -317,6 +328,8 @@ Resources:
           Value: !Ref ServiceName
         - Key: GithubRepo
           Value: !Ref GithubRepository
+        - Key: BaseProject
+          Value: aws-services
         - Key: Name
           Value: data-fetcher-log-group
         - Key: SubService
@@ -354,6 +367,8 @@ Resources:
           Value: !Ref ServiceName
         - Key: GithubRepo
           Value: !Ref GithubRepository
+        - Key: BaseProject
+          Value: aws-services
         - Key: Name
           Value: data-fetcher-error-alarm
         - Key: SubService
@@ -391,6 +406,8 @@ Resources:
           Value: !Ref ServiceName
         - Key: GithubRepo
           Value: !Ref GithubRepository
+        - Key: BaseProject
+          Value: aws-services
         - Key: Name
           Value: data-fetcher-duration-alarm
         - Key: SubService
@@ -399,11 +416,15 @@ Resources:
   # NEW: Lambda Function for AWS What's New RSS Feed
   WhatsNewFetcherFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: nodejs22.x
     Properties:
       FunctionName: aws-whats-new-fetcher
       CodeUri: ./
       Handler: src/lambda/whats-new-handler.handler
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
+      Architectures:
+        - arm64  # ARM64 (Graviton2) for 20% cost savings
       Description: Fetches AWS What's New announcements from last 14 days (max 100 items)
       Timeout: 30  # 30 seconds (RSS fetch is fast)
       MemorySize: 256  # Lightweight operation
@@ -503,6 +524,8 @@ Resources:
           Value: !Ref ServiceName
         - Key: GithubRepo
           Value: !Ref GithubRepository
+        - Key: BaseProject
+          Value: aws-services
         - Key: Name
           Value: whats-new-fetcher-log-group
         - Key: SubService
@@ -540,6 +563,8 @@ Resources:
           Value: !Ref ServiceName
         - Key: GithubRepo
           Value: !Ref GithubRepository
+        - Key: BaseProject
+          Value: aws-services
         - Key: Name
           Value: whats-new-error-alarm
         - Key: SubService
@@ -577,6 +602,8 @@ Resources:
           Value: !Ref ServiceName
         - Key: GithubRepo
           Value: !Ref GithubRepository
+        - Key: BaseProject
+          Value: aws-services
         - Key: Name
           Value: whats-new-duration-alarm
         - Key: SubService
