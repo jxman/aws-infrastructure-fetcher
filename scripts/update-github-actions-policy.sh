@@ -50,6 +50,7 @@ cat > /tmp/github-actions-policy.json <<EOF
         "cloudformation:DescribeStackEvents",
         "cloudformation:DescribeStackResources",
         "cloudformation:GetTemplate",
+        "cloudformation:GetTemplateSummary",
         "cloudformation:ValidateTemplate",
         "cloudformation:CreateChangeSet",
         "cloudformation:DescribeChangeSet",
@@ -62,7 +63,8 @@ cat > /tmp/github-actions-policy.json <<EOF
       ],
       "Resource": [
         "arn:aws:cloudformation:${AWS_REGION}:${AWS_ACCOUNT_ID}:stack/sam-aws-services-fetch/*",
-        "arn:aws:cloudformation:${AWS_REGION}:${AWS_ACCOUNT_ID}:stack/aws-sam-cli-managed-default/*"
+        "arn:aws:cloudformation:${AWS_REGION}:${AWS_ACCOUNT_ID}:stack/aws-sam-cli-managed-default/*",
+        "arn:aws:cloudformation:${AWS_REGION}:aws:transform/Serverless-2016-10-31"
       ]
     },
     {
