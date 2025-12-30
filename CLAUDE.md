@@ -158,7 +158,7 @@ npm install
 
 The setup script verifies:
 
-- Node.js >= 18.0.0
+- Node.js >= 22.0.0
 - AWS credentials configuration
 - Creates `./output/` directory
 
@@ -334,11 +334,11 @@ The script includes 100ms delays between paginated requests. If still throttled:
 
 ### Node.js Version Issues
 
-Requires Node.js >= 18.0.0 for AWS SDK v3:
+Requires Node.js >= 22.0.0 for AWS SDK v3 and Lambda runtime compatibility:
 
 ```bash
 node -v  # Check version
-nvm install 18  # If using nvm
+nvm install 22  # If using nvm
 ```
 
 ## Design Decisions and Rationale
@@ -370,7 +370,7 @@ nvm install 18  # If using nvm
 }
 ```
 
-**Important**: Uses AWS SDK v3 (modular), not v2. Requires Node.js >= 18.0.0.
+**Important**: Uses AWS SDK v3 (modular), not v2. Requires Node.js >= 22.0.0.
 
 Only one AWS SDK dependency needed - SSM Parameter Store provides all infrastructure metadata.
 
@@ -493,6 +493,17 @@ This tool is designed for:
 The `--include-service-mapping` flag uses intelligent caching to dramatically speed up repeated runs.
 
 ## Version History
+
+### v1.10.0 (2025-12-30) - Node.js Runtime Upgrade to 22.x with ARM64
+
+- ✅ Lambda runtime upgraded from nodejs20.x to nodejs22.x
+- ✅ Added ARM64 (Graviton2) architecture for 20% cost savings
+- ✅ Extended support until April 2027 (vs April 2026 for Node.js 20.x)
+- ✅ Updated package.json Node.js engine requirement to >=22.0.0
+- ✅ Updated GitHub Actions workflow to Node.js 22
+- ✅ Both Lambda functions updated: DataFetcherFunction and WhatsNewFetcherFunction
+- ✅ Fully backward compatible - no code changes required
+- ✅ Follows AWS Lambda best practices (ARM64 mandatory for cost optimization)
 
 ### v1.6.0 (2025-10-16) - Project Restructuring
 

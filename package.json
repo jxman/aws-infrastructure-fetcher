@@ -1,6 +1,6 @@
 {
   "name": "aws-ssm-data-fetcher",
-  "version": "1.8.0",
+  "version": "1.10.0",
   "description": "Serverless AWS Lambda function that fetches and maintains AWS global infrastructure data (regions, services, availability mappings) from SSM Parameter Store with S3 storage, SNS notifications, and daily automated updates",
   "main": "src/cli.js",
   "scripts": {

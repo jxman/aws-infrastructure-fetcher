@@ -3,7 +3,7 @@
 **Automated AWS Lambda function that fetches and maintains AWS global infrastructure data (regions, services, and availability mappings) with S3 storage, SNS notifications, and daily automated updates.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org/)
 [![AWS SDK](https://img.shields.io/badge/AWS%20SDK-v3.645.0-orange.svg)](https://aws.amazon.com/sdk-for-javascript/)
 [![Runtime](https://img.shields.io/badge/runtime-AWS%20Lambda-FF9900.svg)](https://aws.amazon.com/lambda/)
 [![Infrastructure](https://img.shields.io/badge/IaC-AWS%20SAM-232F3E.svg)](https://aws.amazon.com/serverless/sam/)
@@ -12,7 +12,7 @@
 
 ### Core Runtime & Languages
 
-- **Node.js** 20.x - JavaScript runtime
+- **Node.js** 22.x - JavaScript runtime with ARM64 (Graviton2) architecture
 - **AWS SDK v3** - AWS service clients (SSM, S3, SNS, CloudFront)
 - **JavaScript/ES6+** - Modern async/await patterns
 
@@ -106,7 +106,7 @@ Originally created to troubleshoot missing AWS regions (specifically `eu-west-3`
 - **AWS Account** with permissions to deploy Lambda, S3, and CloudFormation
 - **AWS CLI** installed and configured ([Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html))
 - **SAM CLI** installed ([Installation Guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html))
-- **Node.js** >= 20.0.0 ([Download](https://nodejs.org/))
+- **Node.js** >= 22.0.0 ([Download](https://nodejs.org/))
 
 ### Deploy via GitHub Actions (Recommended)
 
@@ -180,7 +180,7 @@ sam logs --name DataFetcherFunction --stack-name sam-aws-services-fetch --tail
                               ┌─────────────────────┐
                               │  Lambda Function    │
                               │  aws-data-fetcher   │
-                              │  (Node.js 20)       │
+                              │  (Node.js 22)       │
                               └─────────────────────┘
                                          │
                     ┌────────────────────┼────────────────────┐
@@ -221,7 +221,7 @@ sam logs --name DataFetcherFunction --stack-name sam-aws-services-fetch --tail
                               ┌─────────────────────┐
                               │  Lambda Function    │
                               │ aws-whats-new-fetcher│
-                              │  (Node.js 20)       │
+                              │  (Node.js 22)       │
                               └─────────────────────┘
                                          │
             ┌────────────────────────────┼────────────────────────────┐
@@ -795,7 +795,7 @@ All data is fetched from **AWS SSM Parameter Store** public parameters:
 
 See [CHANGELOG.md](./docs/CHANGELOG.md) for detailed version history.
 
-**Current Version**: 1.5.1 (Node.js 20.x Runtime)
+**Current Version**: 1.10.0 (Node.js 22.x Runtime with ARM64)
 
 **Key Milestones**:
 
@@ -806,6 +806,7 @@ See [CHANGELOG.md](./docs/CHANGELOG.md) for detailed version history.
 - **v1.4.0**: Dynamic service name fetching from SSM
 - **v1.5.0**: Lambda deployment with S3 storage and SNS notifications
 - **v1.5.1**: Node.js 20.x runtime upgrade (LTS until April 2026)
+- **v1.10.0**: Node.js 22.x runtime with ARM64 (Graviton2) - 20% cost savings, LTS until April 2027
 
 ## Use Cases
 
@@ -846,9 +847,9 @@ For issues or questions:
 
 ---
 
-**Last Updated**: October 2025
-**Version**: 1.5.1
-**Node.js**: >= 20.0.0
+**Last Updated**: December 2025
+**Version**: 1.10.0
+**Node.js**: >= 22.0.0
 **AWS SDK**: v3.645.0
 **Deployment**: AWS Lambda + SAM
 

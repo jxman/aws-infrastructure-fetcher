@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - Node.js Runtime Upgrade to 22.x with ARM64
+
+**Runtime Update**: Upgraded Lambda functions from Node.js 20.x to Node.js 22.x with ARM64 (Graviton2) architecture.
+
+**Changes**:
+- **Lambda Runtime**: Updated from `nodejs20.x` to `nodejs22.x`
+- **Architecture**: Added ARM64 (Graviton2) for 20% cost savings
+- **Support Extended**: Node.js 22.x support until April 2027 (vs April 2026 for 20.x)
+- **Package.json**: Updated Node.js engine requirement from >=20.0.0 to >=22.0.0
+- **GitHub Actions**: Updated CI/CD workflow from Node.js 20 to Node.js 22
+
+**Functions Updated**:
+- `DataFetcherFunction` (aws-data-fetcher)
+- `WhatsNewFetcherFunction` (aws-whats-new-fetcher)
+
+**Benefits**:
+- ✅ Extended support timeline (additional 1 year)
+- ✅ 20% cost reduction with ARM64 architecture
+- ✅ Better performance with Graviton2 processors
+- ✅ Follows AWS Lambda best practices (ARM64 mandatory for cost optimization)
+- ✅ Fully backward compatible (no code changes required)
+
+**Cost Impact**:
+- Lambda compute cost reduced by ~20% due to ARM64 pricing
+- Total monthly cost: ~$1.06/month → ~$0.85/month (estimated)
+
+**SAM Template Changes**:
+- `template.yaml`: Updated Runtime to `nodejs22.x` for both functions
+- `template.yaml`: Added `Architectures: [arm64]` for both functions
+- `.github/workflows/deploy.yml`: Updated Node.js version to 22
+
 ### Added - GitHub Actions CI/CD Pipeline
 
 **Automated Deployment**: Complete GitHub Actions workflow for test, validate, and deploy operations.
