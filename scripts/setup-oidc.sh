@@ -730,7 +730,7 @@ update_iam_policy() {
         "events:ListTagsForResource"
       ],
       "Resource": [
-        "arn:aws:events:${AWS_REGION}:${AWS_ACCOUNT_ID}:rule/aws-data-fetcher-*"
+        "arn:aws:events:${AWS_REGION}:${AWS_ACCOUNT_ID}:rule/sam-aws-services-fetch-*"
       ]
     },
     {
