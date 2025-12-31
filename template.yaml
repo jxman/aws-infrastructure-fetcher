@@ -290,23 +290,36 @@ Resources:
                 Resource:
                   - !Sub 'arn:aws:s3:::${DistributionBucketName}/${DistributionKeyPrefix}/*'
           - !Ref AWS::NoValue
-      Events:
-        # Daily EventBridge schedule
-        DailySchedule:
-          Type: Schedule
-          Properties:
-            Schedule: !Ref ScheduleExpression
-            Description: Daily AWS data fetch
-            Enabled: true
-            Input: |
-              {
-                "includeServiceMapping": true,
-                "forceRefresh": false
-              }
       Tags:
         Name: aws-data-fetcher-lambda
         SubService: data-fetcher-lambda
         # Globals tags automatically merged: Environment, ManagedBy, Owner, Project, Service, GithubRepo
+
+  # EXPLICIT EVENTBRIDGE RESOURCES FOR DATA FETCHER (replaces SAM Events)
+  # Following AWS best practice to avoid race condition with Lambda::Permission updates
+
+  DataFetcherScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Daily AWS infrastructure data fetch
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt DataFetcherFunction.Arn
+          Id: DataFetcherTarget
+          Input: |
+            {
+              "includeServiceMapping": true,
+              "forceRefresh": false
+            }
+
+  DataFetcherSchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DataFetcherFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DataFetcherScheduleRule.Arn
 
   # CloudWatch Log Group (explicit creation for retention control)
   FunctionLogGroup:
@@ -473,36 +486,86 @@ Resources:
                 - sns:Publish
               Resource:
                 - !Ref NotificationTopic
-      Events:
-        # Four times daily EventBridge schedule (every 6 hours)
-        Schedule2AM:
-          Type: Schedule
-          Properties:
-            Schedule: cron(0 2 * * ? *)
-            Description: AWS What's New feed fetch - 2 AM UTC
-            Enabled: true
-        Schedule8AM:
-          Type: Schedule
-          Properties:
-            Schedule: cron(0 8 * * ? *)
-            Description: AWS What's New feed fetch - 8 AM UTC
-            Enabled: true
-        Schedule2PM:
-          Type: Schedule
-          Properties:
-            Schedule: cron(0 14 * * ? *)
-            Description: AWS What's New feed fetch - 2 PM UTC
-            Enabled: true
-        Schedule8PM:
-          Type: Schedule
-          Properties:
-            Schedule: cron(0 20 * * ? *)
-            Description: AWS What's New feed fetch - 8 PM UTC
-            Enabled: true
       Tags:
         Name: aws-whats-new-fetcher-lambda
         SubService: whats-new-fetcher-lambda
         # Globals tags automatically merged: Environment, ManagedBy, Owner, Project, Service, GithubRepo
+
+  # EXPLICIT EVENTBRIDGE RESOURCES FOR WHAT'S NEW FETCHER (replaces SAM Events)
+  # Following AWS best practice to avoid race condition with Lambda::Permission updates
+  # Four times daily schedule (every 6 hours)
+
+  WhatsNewScheduleRule2AM:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: AWS What's New feed fetch - 2 AM UTC
+      ScheduleExpression: cron(0 2 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt WhatsNewFetcherFunction.Arn
+          Id: WhatsNewTarget2AM
+
+  WhatsNewSchedulePermission2AM:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WhatsNewFetcherFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt WhatsNewScheduleRule2AM.Arn
+
+  WhatsNewScheduleRule8AM:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: AWS What's New feed fetch - 8 AM UTC
+      ScheduleExpression: cron(0 8 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt WhatsNewFetcherFunction.Arn
+          Id: WhatsNewTarget8AM
+
+  WhatsNewSchedulePermission8AM:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WhatsNewFetcherFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt WhatsNewScheduleRule8AM.Arn
+
+  WhatsNewScheduleRule2PM:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: AWS What's New feed fetch - 2 PM UTC
+      ScheduleExpression: cron(0 14 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt WhatsNewFetcherFunction.Arn
+          Id: WhatsNewTarget2PM
+
+  WhatsNewSchedulePermission2PM:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WhatsNewFetcherFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt WhatsNewScheduleRule2PM.Arn
+
+  WhatsNewScheduleRule8PM:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: AWS What's New feed fetch - 8 PM UTC
+      ScheduleExpression: cron(0 20 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt WhatsNewFetcherFunction.Arn
+          Id: WhatsNewTarget8PM
+
+  WhatsNewSchedulePermission8PM:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WhatsNewFetcherFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt WhatsNewScheduleRule8PM.Arn
 
   # CloudWatch Log Group for What's New fetcher
   WhatsNewFunctionLogGroup:
