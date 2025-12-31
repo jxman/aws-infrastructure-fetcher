@@ -96,18 +96,37 @@ jobs:
 
       - name: Deploy SAM application
         run: |
-          sam deploy \
-            --no-confirm-changeset \
-            --no-fail-on-empty-changeset \
-            --stack-name sam-aws-services-fetch \
-            --capabilities CAPABILITY_IAM \
-            --resolve-s3 \
-            --region us-east-1 \
-            --parameter-overrides \
-              Environment=prod \
-              ProjectName=aws-services \
-              ServiceName=aws-infrastructure-data-fetcher \
-              GithubRepository=github.com/jxman/aws-infrastructure-fetcher
+          # Retry deployment up to 3 times to handle EventBridge permissions race condition
+          MAX_ATTEMPTS=3
+          ATTEMPT=1
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Deployment attempt $ATTEMPT of $MAX_ATTEMPTS..."
+
+            if sam deploy \
+              --no-confirm-changeset \
+              --no-fail-on-empty-changeset \
+              --stack-name sam-aws-services-fetch \
+              --capabilities CAPABILITY_IAM \
+              --resolve-s3 \
+              --region us-east-1 \
+              --parameter-overrides \
+                Environment=prod \
+                ProjectName=aws-services \
+                ServiceName=aws-infrastructure-data-fetcher \
+                GithubRepository=github.com/jxman/aws-infrastructure-fetcher; then
+              echo "✅ Deployment succeeded on attempt $ATTEMPT"
+              break
+            else
+              if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+                echo "❌ Deployment failed after $MAX_ATTEMPTS attempts"
+                exit 1
+              fi
+              echo "⚠️  Deployment failed on attempt $ATTEMPT, retrying in 10 seconds..."
+              sleep 10
+              ATTEMPT=$((ATTEMPT + 1))
+            fi
+          done
 
       - name: Get Stack Outputs
         id: stack-outputs
