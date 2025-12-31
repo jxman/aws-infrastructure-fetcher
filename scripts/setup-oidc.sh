@@ -11,10 +11,64 @@
 # - IAM Role for GitHub Actions
 # - IAM Policy with required permissions
 #
-# Usage: ./scripts/setup-oidc.sh
+# Usage:
+#   ./scripts/setup-oidc.sh              # Initial setup (create all resources)
+#   ./scripts/setup-oidc.sh --update-policy  # Update existing IAM policy only
+#   ./scripts/setup-oidc.sh --help       # Show help
 #############################################################################
 
 set -e  # Exit on error
+
+# Parse command line arguments
+UPDATE_POLICY_ONLY=false
+SHOW_HELP=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --update-policy)
+            UPDATE_POLICY_ONLY=true
+            shift
+            ;;
+        --help|-h)
+            SHOW_HELP=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+# Show help if requested
+if [ "$SHOW_HELP" = true ]; then
+    cat <<EOF
+GitHub Actions OIDC Setup Script
+
+Usage:
+  ./scripts/setup-oidc.sh [OPTIONS]
+
+Options:
+  (none)           Run initial setup - creates OIDC provider, IAM role, and policy
+  --update-policy  Update the existing IAM policy with new permissions
+  --help, -h       Show this help message
+
+Examples:
+  # Initial setup (first time)
+  ./scripts/setup-oidc.sh
+
+  # Update IAM policy after permissions change
+  ./scripts/setup-oidc.sh --update-policy
+
+Notes:
+  - Initial setup is interactive and prompts for GitHub repository
+  - Update mode finds and updates the existing policy automatically
+  - AWS credentials must be configured before running
+  - Requires: aws-cli, jq
+EOF
+    exit 0
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -447,7 +501,7 @@ EOF
 
     if [[ -n "$POLICY_ARN" ]]; then
         print_warning "IAM Policy already exists: $POLICY_ARN"
-        print_info "Consider updating the policy version if permissions changed"
+        print_info "To update the policy, run: ./scripts/setup-oidc.sh --update-policy"
     else
         POLICY_ARN=$(aws iam create-policy \
             --policy-name "$POLICY_NAME" \
@@ -465,6 +519,329 @@ EOF
             --output text)
         print_success "IAM Policy created: $POLICY_ARN"
     fi
+}
+
+#############################################################################
+# Update IAM Policy (creates new version)
+#############################################################################
+
+update_iam_policy() {
+    print_header "Updating IAM Policy"
+
+    # Get policy document (same as create_iam_policy)
+    POLICY_DOC=$(cat <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CloudFormationAccess",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateStack",
+        "cloudformation:UpdateStack",
+        "cloudformation:DeleteStack",
+        "cloudformation:DescribeStacks",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStackResources",
+        "cloudformation:GetTemplate",
+        "cloudformation:ValidateTemplate",
+        "cloudformation:CreateChangeSet",
+        "cloudformation:DescribeChangeSet",
+        "cloudformation:ExecuteChangeSet",
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:ListStacks",
+        "cloudformation:GetTemplateSummary"
+      ],
+      "Resource": [
+        "arn:aws:cloudformation:${AWS_REGION}:${AWS_ACCOUNT_ID}:stack/sam-aws-services-fetch/*",
+        "arn:aws:cloudformation:${AWS_REGION}:${AWS_ACCOUNT_ID}:stack/aws-sam-cli-managed-default/*",
+        "arn:aws:cloudformation:${AWS_REGION}:aws:transform/Serverless-2016-10-31"
+      ]
+    },
+    {
+      "Sid": "LambdaAccess",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:DeleteFunction",
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:ListFunctions",
+        "lambda:ListVersionsByFunction",
+        "lambda:PublishVersion",
+        "lambda:CreateAlias",
+        "lambda:UpdateAlias",
+        "lambda:DeleteAlias",
+        "lambda:GetAlias",
+        "lambda:AddPermission",
+        "lambda:RemovePermission",
+        "lambda:InvokeFunction",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:ListTags"
+      ],
+      "Resource": [
+        "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:aws-data-fetcher*",
+        "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:aws-whats-new-fetcher*"
+      ]
+    },
+    {
+      "Sid": "IAMRoleAccess",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:PassRole",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies"
+      ],
+      "Resource": [
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:role/sam-aws-services-fetch-*"
+      ]
+    },
+    {
+      "Sid": "S3Access",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "s3:GetBucketPolicy",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:GetBucketVersioning",
+        "s3:PutBucketVersioning",
+        "s3:GetBucketNotification",
+        "s3:PutBucketNotification",
+        "s3:GetBucketTagging",
+        "s3:PutBucketTagging",
+        "s3:GetBucketLifecycleConfiguration",
+        "s3:PutBucketLifecycleConfiguration",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:GetObject",
+        "s3:HeadObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:GetObjectVersion",
+        "s3:DeleteObjectVersion",
+        "s3:ListBucketVersions"
+      ],
+      "Resource": [
+        "arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-*",
+        "arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-*/*",
+        "arn:aws:s3:::aws-data-fetcher-output",
+        "arn:aws:s3:::aws-data-fetcher-output/*",
+        "arn:aws:s3:::www.aws-services.synepho.com",
+        "arn:aws:s3:::www.aws-services.synepho.com/*"
+      ]
+    },
+    {
+      "Sid": "SNSAccess",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:DeleteTopic",
+        "sns:GetTopicAttributes",
+        "sns:SetTopicAttributes",
+        "sns:Subscribe",
+        "sns:Unsubscribe",
+        "sns:TagResource",
+        "sns:UntagResource",
+        "sns:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:sns:${AWS_REGION}:${AWS_ACCOUNT_ID}:aws-data-fetcher-*"
+    },
+    {
+      "Sid": "CloudWatchLogsAccess",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "logs:GetLogEvents",
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy",
+        "logs:TagLogGroup",
+        "logs:UntagLogGroup",
+        "logs:TagResource",
+        "logs:UntagResource",
+        "logs:ListTagsForResource",
+        "logs:ListTagsLogGroup"
+      ],
+      "Resource": [
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:/aws/lambda/aws-data-fetcher*",
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:/aws/lambda/aws-whats-new-fetcher*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchAlarmsAccess",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:TagResource",
+        "cloudwatch:UntagResource",
+        "cloudwatch:ListTagsForResource"
+      ],
+      "Resource": [
+        "arn:aws:cloudwatch:${AWS_REGION}:${AWS_ACCOUNT_ID}:alarm:aws-data-fetcher-*",
+        "arn:aws:cloudwatch:${AWS_REGION}:${AWS_ACCOUNT_ID}:alarm:aws-whats-new-fetcher-*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchMetricsAccess",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListMetrics"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "${AWS_REGION}"
+        }
+      }
+    },
+    {
+      "Sid": "EventBridgeAccess",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutRule",
+        "events:DeleteRule",
+        "events:DescribeRule",
+        "events:PutTargets",
+        "events:RemoveTargets",
+        "events:TagResource",
+        "events:UntagResource",
+        "events:ListTagsForResource"
+      ],
+      "Resource": [
+        "arn:aws:events:${AWS_REGION}:${AWS_ACCOUNT_ID}:rule/aws-data-fetcher-*"
+      ]
+    },
+    {
+      "Sid": "IAMPolicyAccess",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion"
+      ],
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:policy/sam-aws-services-fetch-*"
+    },
+    {
+      "Sid": "CloudFrontInvalidation",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:CreateInvalidation",
+        "cloudfront:GetInvalidation",
+        "cloudfront:ListInvalidations"
+      ],
+      "Resource": "arn:aws:cloudfront::${AWS_ACCOUNT_ID}:distribution/EBTYLWOK3WVOK"
+    },
+    {
+      "Sid": "KMSAccess",
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateKey",
+        "kms:DescribeKey",
+        "kms:GetKeyPolicy",
+        "kms:PutKeyPolicy",
+        "kms:EnableKeyRotation",
+        "kms:DisableKeyRotation",
+        "kms:GetKeyRotationStatus",
+        "kms:ScheduleKeyDeletion",
+        "kms:CancelKeyDeletion",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:ListResourceTags",
+        "kms:CreateAlias",
+        "kms:DeleteAlias",
+        "kms:UpdateAlias",
+        "kms:ListAliases"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "${AWS_REGION}"
+        }
+      }
+    }
+  ]
+}
+EOF
+)
+
+    # Find existing policy
+    POLICY_ARN=$(aws iam list-policies --scope Local --query "Policies[?PolicyName=='$POLICY_NAME'].Arn" --output text || echo "")
+
+    if [[ -z "$POLICY_ARN" ]]; then
+        print_error "Policy $POLICY_NAME not found!"
+        print_info "Run './scripts/setup-oidc.sh' first to create the policy"
+        exit 1
+    fi
+
+    print_info "Found policy: $POLICY_ARN"
+
+    # Get current version
+    CURRENT_VERSION=$(aws iam get-policy --policy-arn "$POLICY_ARN" --query 'Policy.DefaultVersionId' --output text)
+    print_info "Current version: $CURRENT_VERSION"
+
+    # Create new policy version
+    print_info "Creating new policy version..."
+    NEW_VERSION=$(aws iam create-policy-version \
+        --policy-arn "$POLICY_ARN" \
+        --policy-document "$POLICY_DOC" \
+        --set-as-default \
+        --query 'PolicyVersion.VersionId' \
+        --output text)
+
+    print_success "Created new policy version: $NEW_VERSION (set as default)"
+
+    # Clean up old versions (AWS allows max 5 versions)
+    print_info "Cleaning up old policy versions..."
+    VERSIONS=$(aws iam list-policy-versions \
+        --policy-arn "$POLICY_ARN" \
+        --query 'Versions[?!IsDefaultVersion].VersionId' \
+        --output text)
+
+    VERSION_COUNT=$(echo "$VERSIONS" | wc -w)
+    if [ "$VERSION_COUNT" -gt 4 ]; then
+        OLDEST_VERSION=$(echo "$VERSIONS" | awk '{print $NF}')
+        print_info "Deleting oldest version: $OLDEST_VERSION"
+        aws iam delete-policy-version \
+            --policy-arn "$POLICY_ARN" \
+            --version-id "$OLDEST_VERSION"
+        print_success "Deleted old version: $OLDEST_VERSION"
+    else
+        print_info "No cleanup needed (${VERSION_COUNT} old versions)"
+    fi
+
+    print_success "Policy updated successfully!"
+    echo ""
+    print_info "Summary of changes:"
+    echo "  - Added s3:HeadObject for S3 file verification"
+    echo "  - Added logs:DescribeLogStreams, logs:GetLogEvents for CloudWatch Logs"
+    echo "  - Added cloudwatch:GetMetricStatistics for SNS metrics verification"
+    echo "  - Added cloudformation:GetTemplateSummary for SAM deployments"
 }
 
 #############################################################################
@@ -592,12 +969,36 @@ main() {
     echo -e "${NC}"
 
     check_prerequisites
-    get_inputs
-    create_oidc_provider
-    create_iam_policy
-    create_iam_role
-    attach_policy
-    display_summary
+
+    if [ "$UPDATE_POLICY_ONLY" = true ]; then
+        # Update mode: only update the IAM policy
+        print_info "Running in UPDATE POLICY mode"
+        echo ""
+
+        # Get AWS region and account (needed for policy document)
+        AWS_REGION=${AWS_REGION:-"us-east-1"}
+        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+        update_iam_policy
+
+        print_header "Update Complete!"
+        print_success "IAM policy has been updated with the latest permissions"
+        echo ""
+        print_info "The GitHub Actions workflow can now:"
+        echo "  - Invoke Lambda functions for testing"
+        echo "  - Verify S3 output files"
+        echo "  - Read CloudWatch Logs"
+        echo "  - Check SNS metrics"
+        echo ""
+    else
+        # Full setup mode: create all resources
+        get_inputs
+        create_oidc_provider
+        create_iam_policy
+        create_iam_role
+        attach_policy
+        display_summary
+    fi
 }
 
 # Run main function

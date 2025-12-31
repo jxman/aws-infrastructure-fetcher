@@ -65,13 +65,13 @@ Added comprehensive post-deployment testing to the GitHub Actions workflow to au
    - Resource: `"*"` with region condition
    - Required for: Reading SNS publish metrics
 
-## Files Created
+## Script Consolidation
 
-### 1. `scripts/update-github-actions-policy.sh`
-**Purpose**: Automated script to update the live IAM policy in AWS
+The OIDC setup script (`scripts/setup-oidc.sh`) now supports both initial setup and policy updates through a single unified interface:
 
 **Features**:
-- Fetches current policy ARN and version
+- `--update-policy` flag for updating existing IAM policy
+- Finds current policy ARN and version automatically
 - Creates new policy version with all required permissions
 - Sets new version as default
 - Cleans up old policy versions (AWS limit: 5 versions)
@@ -79,7 +79,11 @@ Added comprehensive post-deployment testing to the GitHub Actions workflow to au
 
 **Usage**:
 ```bash
-./scripts/update-github-actions-policy.sh
+# Initial setup (first time)
+./scripts/setup-oidc.sh
+
+# Update policy (when permissions change)
+./scripts/setup-oidc.sh --update-policy
 ```
 
 ### 2. `docs/POST_DEPLOYMENT_TESTING.md`
@@ -106,7 +110,7 @@ Following the project's CLAUDE.md guidelines for IAM policy synchronization:
 
 ### ⏳ Live Policy Update Required
 - Policy Name: `GithubActions-AWSServicesDataFetcher-Policy`
-- Action Required: Run `./scripts/update-github-actions-policy.sh`
+- Action Required: Run `./scripts/setup-oidc.sh --update-policy`
 - Urgency: Required before next GitHub Actions deployment
 
 ## Testing Capabilities
@@ -170,10 +174,10 @@ The workflow now automatically tests:
 
 ### 1. Update Live IAM Policy (REQUIRED)
 
-Run the automated script:
+Run the OIDC setup script in update mode:
 ```bash
 cd /Users/johxan/Documents/my-projects/aws-services/aws-services-fetcher
-./scripts/update-github-actions-policy.sh
+./scripts/setup-oidc.sh --update-policy
 ```
 
 This creates a new version of the GitHub Actions IAM policy with the required permissions.
@@ -272,9 +276,17 @@ No new destructive or write permissions were added.
 ## Documentation Updates
 
 Created comprehensive documentation:
-- `docs/POST_DEPLOYMENT_TESTING.md` - Full testing guide (376 lines)
-- `scripts/update-github-actions-policy.sh` - Automated policy updater (172 lines)
+- `docs/POST_DEPLOYMENT_TESTING.md` - Full testing guide
+- `scripts/setup-oidc.sh` - Enhanced with `--update-policy` mode for policy updates
 - `DEPLOYMENT_TESTING_CHANGES.md` - This summary document
+
+## Script Consolidation Benefits
+
+Eliminated duplicate code by consolidating IAM policy management:
+- **Before**: 2 separate scripts (setup-oidc.sh + update-github-actions-policy.sh) with 280+ lines of duplicated policy document
+- **After**: 1 unified script with `--update-policy` flag
+- **Benefit**: Single source of truth for IAM policy - no risk of drift between scripts
+- **Maintenance**: Update policy once, works for both create and update operations
 
 ## Validation
 

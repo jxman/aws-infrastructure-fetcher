@@ -125,14 +125,14 @@ The GitHub Actions IAM policy requires the following additional permissions for 
 
 ### Method 1: Automated Script (Recommended)
 
-Run the provided script to update the live IAM policy:
+Run the OIDC setup script in update mode to update the live IAM policy:
 
 ```bash
-./scripts/update-github-actions-policy.sh
+./scripts/setup-oidc.sh --update-policy
 ```
 
-This script:
-- Fetches the current policy ARN
+This command:
+- Finds the existing policy ARN
 - Creates a new policy version with added permissions
 - Sets the new version as default
 - Cleans up old policy versions (AWS limit: 5 versions)
