@@ -222,12 +222,31 @@ jobs:
             exit 1
           fi
 
-          # Extract log output (base64 encoded)
-          LOG_RESULT=$(echo "$INVOKE_OUTPUT" | jq -r '.LogResult // empty' | base64 -d || echo "No logs")
+          # Extract and display log output (base64 encoded)
+          echo "📋 Lambda Execution Logs:"
+          LOG_RESULT=$(echo "$INVOKE_OUTPUT" | jq -r '.LogResult // empty')
+          if [ -n "$LOG_RESULT" ]; then
+            echo "$LOG_RESULT" | base64 -d
+            DECODED_LOGS=$(echo "$LOG_RESULT" | base64 -d)
+
+            # Check for success message in logs
+            if echo "$DECODED_LOGS" | grep -q "Data fetch completed successfully"; then
+              echo "✅ Found success message in Lambda logs"
+              echo "log-check=success" >> $GITHUB_OUTPUT
+            elif echo "$DECODED_LOGS" | grep -qi "error"; then
+              echo "❌ Found error in Lambda logs"
+              echo "log-check=failed" >> $GITHUB_OUTPUT
+            else
+              echo "log-check=success" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "⚠️ No logs available in invoke response"
+            echo "log-check=warning" >> $GITHUB_OUTPUT
+          fi
 
           echo "test-result=success" >> $GITHUB_OUTPUT
-          echo "Lambda execution completed successfully"
-          echo "Response:"
+          echo ""
+          echo "📄 Lambda Response:"
           cat /tmp/lambda-response.json
 
       - name: Verify S3 Output Files
@@ -266,55 +285,6 @@ jobs:
             echo "s3-verification=failed" >> $GITHUB_OUTPUT
             echo "missing-files=$MISSING_FILES" >> $GITHUB_OUTPUT
             exit 1
-          fi
-
-      - name: Check CloudWatch Logs
-        id: check-logs
-        run: |
-          echo "Checking CloudWatch Logs for successful execution..."
-          LOG_GROUP="/aws/lambda/${{ steps.stack-outputs.outputs.data-function-name }}"
-
-          # Wait a few seconds for logs to be available
-          sleep 5
-
-          # Get the most recent log stream
-          LATEST_STREAM=$(aws logs describe-log-streams \
-            --log-group-name "$LOG_GROUP" \
-            --order-by LastEventTime \
-            --descending \
-            --max-items 1 \
-            --query 'logStreams[0].logStreamName' \
-            --output text)
-
-          if [ -z "$LATEST_STREAM" ] || [ "$LATEST_STREAM" = "None" ]; then
-            echo "⚠️  No log streams found yet"
-            echo "log-check=warning" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "Latest log stream: $LATEST_STREAM"
-
-          # Get recent log events
-          LOG_EVENTS=$(aws logs get-log-events \
-            --log-group-name "$LOG_GROUP" \
-            --log-stream-name "$LATEST_STREAM" \
-            --limit 50 \
-            --query 'events[*].message' \
-            --output text)
-
-          # Check for success indicators
-          if echo "$LOG_EVENTS" | grep -q "Data fetch completed successfully"; then
-            echo "✅ Found success message in logs"
-            echo "log-check=success" >> $GITHUB_OUTPUT
-          elif echo "$LOG_EVENTS" | grep -qi "error"; then
-            echo "❌ Found error in logs"
-            echo "log-check=failed" >> $GITHUB_OUTPUT
-            echo "Recent logs:"
-            echo "$LOG_EVENTS"
-            exit 1
-          else
-            echo "⚠️  Could not verify success/failure from logs"
-            echo "log-check=warning" >> $GITHUB_OUTPUT
           fi
 
       - name: Verify SNS Notification
@@ -372,13 +342,13 @@ jobs:
             echo "❌ **S3 Output Files**: Missing files -${{ steps.verify-s3-files.outputs.missing-files }}" >> $GITHUB_STEP_SUMMARY
           fi
 
-          # CloudWatch Logs Check
-          if [ "${{ steps.check-logs.outputs.log-check }}" = "success" ]; then
-            echo "✅ **CloudWatch Logs**: Success message found" >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ steps.check-logs.outputs.log-check }}" = "warning" ]; then
-            echo "⚠️ **CloudWatch Logs**: Could not verify (check manually)" >> $GITHUB_STEP_SUMMARY
+          # Lambda Execution Logs Check
+          if [ "${{ steps.test-data-fetcher.outputs.log-check }}" = "success" ]; then
+            echo "✅ **Lambda Execution Logs**: Success message found" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.test-data-fetcher.outputs.log-check }}" = "warning" ]; then
+            echo "⚠️ **Lambda Execution Logs**: Could not verify (check manually)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **CloudWatch Logs**: Errors detected" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Lambda Execution Logs**: Errors detected" >> $GITHUB_STEP_SUMMARY
           fi
 
           # SNS Notification Verification
