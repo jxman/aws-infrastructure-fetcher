@@ -209,6 +209,7 @@ jobs:
           INVOKE_OUTPUT=$(aws lambda invoke \
             --function-name ${{ steps.stack-outputs.outputs.data-function-name }} \
             --invocation-type RequestResponse \
+            --cli-binary-format raw-in-base64-out \
             --payload '{"includeServiceMapping": false, "forceRefresh": true}' \
             --log-type Tail \
             /tmp/lambda-response.json 2>&1)
