@@ -1,0 +1,3 @@
+# SAM build artifacts - these are generated build outputs, not source dependencies.
+# The root package.json is the source of truth and is scanned separately.
+.aws-sam/
