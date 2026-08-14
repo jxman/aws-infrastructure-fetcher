@@ -420,22 +420,47 @@ class AWSDataFetcher {
             const batch = serviceCodesArray.slice(i, i + serviceNameBatchSize);
 
             const batchPromises = batch.map(async (serviceCode) => {
-                try {
-                    const longNamePath = `/aws/service/global-infrastructure/services/${serviceCode}/longName`;
-                    const command = new GetParameterCommand({ Name: longNamePath });
-                    const response = await this.ssmClient.send(command);
+                const longNamePath = `/aws/service/global-infrastructure/services/${serviceCode}/longName`;
+                const command = new GetParameterCommand({ Name: longNamePath });
 
-                    return {
-                        code: serviceCode,
-                        name: response.Parameter?.Value || serviceCode,
-                        success: true
-                    };
-                } catch (error) {
-                    return {
-                        code: serviceCode,
-                        name: serviceCode,
-                        success: false
-                    };
+                let retries = 0;
+                while (true) {
+                    try {
+                        const response = await this.ssmClient.send(command);
+
+                        return {
+                            code: serviceCode,
+                            name: response.Parameter?.Value || serviceCode,
+                            success: true
+                        };
+                    } catch (error) {
+                        // ParameterNotFound means AWS genuinely has no longName for this
+                        // service - fall back to the code without retrying.
+                        if (error.name === 'ParameterNotFound') {
+                            return {
+                                code: serviceCode,
+                                name: serviceCode,
+                                success: false
+                            };
+                        }
+
+                        // Anything else (throttling, timeouts, transient network errors)
+                        // is retried with exponential backoff rather than silently
+                        // treated as a missing name.
+                        if (retries < config.ssm.maxRetries) {
+                            retries++;
+                            const backoffDelay = config.ssm.baseDelay * Math.pow(2, retries);
+                            await new Promise(resolve => setTimeout(resolve, backoffDelay));
+                            continue;
+                        }
+
+                        console.log(chalk.yellow(`   ⚠️  Failed to fetch longName for ${serviceCode} after ${retries} retries: ${error.message}`));
+                        return {
+                            code: serviceCode,
+                            name: serviceCode,
+                            success: false
+                        };
+                    }
                 }
             });
 

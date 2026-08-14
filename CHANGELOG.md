@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Service Name Fetch Silently Misreported Throttling as Missing SSM Data
+
+**Bug**: In `discoverServices()`, the parallel service `longName` fetch caught every SSM error identically and fell back to using the service code as the name — a `ThrottlingException` or transient network error looked exactly like a genuine `ParameterNotFound` (a service AWS truly has no long name for, e.g. `odb`). This caused services like `neptune`, which does have an official long name in SSM, to intermittently show up as the raw code with no retry and no way to tell it apart from real data gaps in the console summary.
+
+**Fix** (`src/core/aws-data-fetcher.js`):
+- `ParameterNotFound` errors are treated as a genuine AWS data gap and fall back to the service code immediately (no retry) — matches prior behavior for the intended case.
+- All other errors (throttling, timeouts, transient network errors) are now retried with exponential backoff, reusing the existing `config.ssm.maxRetries` / `config.ssm.baseDelay` settings and the same retry pattern already used in `fetchAllSSMParameters()`.
+- A service that still fails after exhausting retries logs the actual error message instead of being silently lumped into the generic "no SSM longName" list.
+
+**Verification**: Re-ran `node src/cli.js --services-only --force-refresh` before and after the fix. Before: `neptune` intermittently reported as "no SSM longName" despite AWS having `longName = "Amazon Neptune"` for it. After: `neptune` resolves correctly on every run; `odb` (a genuine AWS data gap, confirmed directly via `aws ssm get-parameter`) still correctly falls back to its code with no retry.
+
 ### Changed - Node.js Runtime Upgrade to 22.x with ARM64
 
 **Runtime Update**: Upgraded Lambda functions from Node.js 20.x to Node.js 22.x with ARM64 (Graviton2) architecture.
