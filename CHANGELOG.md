@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - CI/CD Smoke Test Was Destroying Production Service-by-Region Data
+
+**Bug**: `.github/workflows/deploy.yml`'s post-deploy smoke test invoked the real production Lambda on every push to `main` with `{"includeServiceMapping": false, "forceRefresh": true}`. This wasn't a sandboxed check — it wrote to the live `aws-data-fetcher-output` S3 bucket and then called `distributeToWebsite()`, actually publishing the result to `aws-services.synepho.com`. Because `includeServiceMapping` was `false`, `servicesByRegion` was never computed for that run, so every push wiped the live site's Coverage Matrix (all services showing unavailable in all regions).
+
+**Fix**: Changed the smoke-test payload to `{"includeServiceMapping": true, "forceRefresh": false}`, matching the production daily cron (`template.yaml`'s `DataFetcherScheduleRule`). This now actually exercises the service-mapping code path in CI (previously untested) while staying fast by reusing the 24h service-by-region cache, and — combined with the `complete-data.json` merge fix above — is no longer destructive to production data on every deploy.
+
+**Remediation**: Manually invoked the production Lambda (`aws-data-fetcher`) with the corrected payload to repopulate `servicesByRegion` in S3 and re-distribute it to the live site. Verified via the distributed `complete-data.json`: 39 regions, 399 services, all 39 regions mapped (9,138+ total service instances).
+
 ### Fixed - Partial Runs Silently Wiped Sections from complete-data.json
 
 **Bug**: `complete-data.json` (the documented "single source of truth") was rebuilt from scratch on every run using only the sections that particular invocation fetched — any section not fetched this run was `undefined` and got deleted from the saved file. Running `--services-only` or `--regions-only`, or omitting `--include-service-mapping`, silently dropped `regions`, `services`, or `servicesByRegion` data that a prior full run had already saved, even though the standalone `regions.json`/`services.json` files were untouched. This surfaced as `complete-data.json` appearing to have no service-by-region mapping after what looked like an unrelated services-only fetch.

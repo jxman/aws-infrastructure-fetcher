@@ -206,11 +206,16 @@ jobs:
         id: test-data-fetcher
         run: |
           echo "Invoking Data Fetcher Lambda function..."
+          # This hits the real production S3 bucket and distributes to the live
+          # website on every push. includeServiceMapping must stay true (with
+          # forceRefresh false to reuse the 24h cache) so this smoke test never
+          # writes a complete-data.json missing the servicesByRegion section to
+          # production - that previously broke the live coverage matrix.
           INVOKE_OUTPUT=$(aws lambda invoke \
             --function-name ${{ steps.stack-outputs.outputs.data-function-name }} \
             --invocation-type RequestResponse \
             --cli-binary-format raw-in-base64-out \
-            --payload '{"includeServiceMapping": false, "forceRefresh": true}' \
+            --payload '{"includeServiceMapping": true, "forceRefresh": false}' \
             --log-type Tail \
             /tmp/lambda-response.json 2>&1)
 
