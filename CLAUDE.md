@@ -167,24 +167,28 @@ The setup script verifies:
 ```bash
 # Fetch all data (regions + services)
 npm start
-# Equivalent: node fetch-aws-data.js
+# Equivalent: node src/cli.js
 
 # Fetch only regions (SSM + EC2 comparison)
 npm run regions
-# Equivalent: node fetch-aws-data.js --regions-only
+# Equivalent: node src/cli.js --regions-only
 
 # Fetch only services from SSM
 npm run services
-# Equivalent: node fetch-aws-data.js --services-only
+# Equivalent: node src/cli.js --services-only
+
+# Fetch regions + services + full service-by-region mapping
+npm run complete
+# Equivalent: node src/cli.js --include-service-mapping
 
 # Include detailed region metadata (makes additional API calls per region, much slower)
-node fetch-aws-data.js --include-details
+node src/cli.js --include-details
 
 # Use different AWS region for API calls (default: us-east-1)
-node fetch-aws-data.js --region us-west-2
+node src/cli.js --region us-west-2
 
 # Show all CLI options
-node fetch-aws-data.js --help
+node src/cli.js --help
 ```
 
 ### CLI Options (Commander.js)

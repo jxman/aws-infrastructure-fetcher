@@ -12,6 +12,7 @@ const path = require('path');
 const https = require('https');
 const config = require('./config');
 const StorageFactory = require('../storage/storage-factory');
+const { version: packageVersion } = require('../../package.json');
 
 class AWSDataFetcher {
     constructor(region = config.aws.region, customConfig = {}) {
@@ -743,7 +744,7 @@ class AWSDataFetcher {
     async run(options = {}) {
         const scriptStartTime = Date.now();
         console.log(chalk.bold.blue('\n' + '='.repeat(60)));
-        console.log(chalk.bold.blue('🚀 AWS SSM Data Fetcher v1.5.1'));
+        console.log(chalk.bold.blue(`🚀 AWS SSM Data Fetcher v${packageVersion}`));
         console.log(chalk.bold.blue('='.repeat(60) + '\n'));
 
         await this.ensureOutputDir();
@@ -752,7 +753,7 @@ class AWSDataFetcher {
             metadata: {
                 timestamp: new Date().toISOString(),
                 tool: 'nodejs-aws-fetcher',
-                version: '1.5.1'
+                version: packageVersion
             }
         };
 

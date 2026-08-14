@@ -10,7 +10,13 @@
     "complete": "node src/cli.js --include-service-mapping",
     "complete:fresh": "rm -f output/.cache-services-by-region.json && node src/cli.js --include-service-mapping",
     "cache:clear": "rm -f output/.cache-services-by-region.json && echo '✅ Cache cleared'",
-    "clean": "rm -rf output/*.json && echo '✅ All output files removed'"
+    "clean": "rm -rf output/*.json && echo '✅ All output files removed'",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.js": "eslint --fix"
   },
   "keywords": [
     "aws",
@@ -46,5 +52,14 @@
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0"
   }
 }

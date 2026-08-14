@@ -4,6 +4,7 @@
  */
 
 const StorageInterface = require('./storage-interface');
+const { version: packageVersion } = require('../../package.json');
 
 // Lazy-load AWS SDK clients only when S3Storage is instantiated
 // This prevents requiring these packages when using LocalStorage
@@ -37,7 +38,7 @@ class S3Storage extends StorageInterface {
       ContentType: 'application/json',
       Metadata: {
         'generated-at': new Date().toISOString(),
-        'version': '1.4.0',
+        'version': packageVersion,
         'type': 'regions'
       }
     }));
@@ -56,7 +57,7 @@ class S3Storage extends StorageInterface {
       ContentType: 'application/json',
       Metadata: {
         'generated-at': new Date().toISOString(),
-        'version': '1.4.0',
+        'version': packageVersion,
         'type': 'services'
       }
     }));
@@ -76,7 +77,7 @@ class S3Storage extends StorageInterface {
       ContentType: 'application/json',
       Metadata: {
         'generated-at': new Date().toISOString(),
-        'version': '1.4.0',
+        'version': packageVersion,
         'type': 'complete'
       }
     }));
@@ -94,7 +95,7 @@ class S3Storage extends StorageInterface {
       ContentType: 'application/json',
       Metadata: {
         'generated-at': new Date().toISOString(),
-        'version': '1.4.0',
+        'version': packageVersion,
         'type': 'historical-snapshot'
       }
     }));
@@ -271,7 +272,7 @@ class S3Storage extends StorageInterface {
       Metadata: {
         'cached-at': new Date().toISOString(),
         'ttl-hours': '24',
-        'version': '1.4.0'
+        'version': packageVersion
       }
     }));
 
@@ -306,7 +307,7 @@ class S3Storage extends StorageInterface {
       Metadata: {
         'updated-at': new Date().toISOString(),
         'type': 'change-history',
-        'version': '1.6.0'
+        'version': packageVersion
       }
     }));
     console.log(`💾 Change history saved to: s3://${this.bucketName}/${key}`);
@@ -339,7 +340,7 @@ class S3Storage extends StorageInterface {
       Metadata: {
         'saved-at': new Date().toISOString(),
         'type': 'snapshot',
-        'version': '1.6.0'
+        'version': packageVersion
       }
     }));
   }

@@ -44,7 +44,7 @@ class WhatsNewFetcher {
         console.error(`⚠️  Fetch attempt ${attempt}/${maxRetries} failed:`, error.message);
 
         if (attempt === maxRetries) {
-          throw new Error(`Failed to fetch RSS feed after ${maxRetries} attempts: ${error.message}`);
+          throw new Error(`Failed to fetch RSS feed after ${maxRetries} attempts: ${error.message}`, { cause: error });
         }
 
         // Exponential backoff: 1s, 2s, 4s
@@ -86,7 +86,7 @@ class WhatsNewFetcher {
       };
 
     } catch (error) {
-      throw new Error(`XML parsing failed: ${error.message}`);
+      throw new Error(`XML parsing failed: ${error.message}`, { cause: error });
     }
   }
 
