@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Partial Runs Silently Wiped Sections from complete-data.json
+
+**Bug**: `complete-data.json` (the documented "single source of truth") was rebuilt from scratch on every run using only the sections that particular invocation fetched — any section not fetched this run was `undefined` and got deleted from the saved file. Running `--services-only` or `--regions-only`, or omitting `--include-service-mapping`, silently dropped `regions`, `services`, or `servicesByRegion` data that a prior full run had already saved, even though the standalone `regions.json`/`services.json` files were untouched. This surfaced as `complete-data.json` appearing to have no service-by-region mapping after what looked like an unrelated services-only fetch.
+
+**Fix** (`src/core/aws-data-fetcher.js`, `src/storage/*.js`):
+- Added `loadComplete()` to the storage interface (local filesystem and S3 implementations) to read back the existing `complete-data.json` before saving.
+- `complete-data.json` is now built by merging: freshly-fetched sections from the current run always win, but any section the current run didn't touch is carried over from the existing file instead of being dropped.
+- Each preserved section keeps its own original `timestamp`, so per-section freshness stays visible in the data itself — nothing is silently backdated or masked as fresher than it is.
+- A console line (`ℹ️  Kept existing '<section>' data from previous run (<timestamp>) — not fetched this run`) makes it explicit whenever a section is inherited rather than freshly fetched.
+
+**Verification**: Ran a full `--include-service-mapping` fetch (39 regions, 399 services, all service-by-region mappings), then a `--services-only --force-refresh` run. Before the fix this would have deleted `regions` and `servicesByRegion` from `complete-data.json`; after the fix both were logged as preserved and confirmed intact in the saved file, alongside the freshly-fetched `services` section. Repeated with `--regions-only` with the same result for `services`/`servicesByRegion`.
+
 ### Fixed - Service Name Fetch Silently Misreported Throttling as Missing SSM Data
 
 **Bug**: In `discoverServices()`, the parallel service `longName` fetch caught every SSM error identically and fell back to using the service code as the name — a `ThrottlingException` or transient network error looked exactly like a genuine `ParameterNotFound` (a service AWS truly has no long name for, e.g. `odb`). This caused services like `neptune`, which does have an official long name in SSM, to intermittently show up as the raw code with no retry and no way to tell it apart from real data gaps in the console summary.

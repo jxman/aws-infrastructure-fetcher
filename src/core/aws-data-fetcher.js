@@ -795,8 +795,7 @@ class AWSDataFetcher {
             }
 
             // Prepare complete data with full region objects (includes launch dates and blog URLs)
-            const completeData = {
-                metadata: results.metadata,
+            const freshData = {
                 regions: results.regions ? {
                     count: results.regions.count,
                     regions: results.regions.regions, // Full region objects with all metadata
@@ -812,10 +811,22 @@ class AWSDataFetcher {
                 servicesByRegion: results.servicesByRegion
             };
 
-            // Remove undefined properties
-            Object.keys(completeData).forEach(key => {
-                if (completeData[key] === undefined) {
-                    delete completeData[key];
+            // A partial run (--regions-only, --services-only, or without
+            // --include-service-mapping) doesn't fetch every section. Rather than
+            // overwriting complete-data.json wholesale and dropping sections it
+            // didn't touch, merge onto whatever is already saved so partial runs
+            // are additive, not destructive. Each preserved section keeps its own
+            // original timestamp, so staleness stays visible per-section.
+            const existingData = await this.storage.loadComplete().catch(() => null);
+
+            const completeData = { metadata: results.metadata };
+            ['regions', 'services', 'servicesByRegion'].forEach(section => {
+                if (freshData[section] !== undefined) {
+                    completeData[section] = freshData[section];
+                } else if (existingData && existingData[section] !== undefined) {
+                    completeData[section] = existingData[section];
+                    const preservedTimestamp = existingData[section].timestamp || existingData.metadata?.timestamp || 'unknown';
+                    console.log(chalk.gray(`   ℹ️  Kept existing '${section}' data from previous run (${preservedTimestamp}) — not fetched this run`));
                 }
             });
 

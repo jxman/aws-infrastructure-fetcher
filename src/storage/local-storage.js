@@ -31,6 +31,19 @@ class LocalStorage extends StorageInterface {
     return filepath;
   }
 
+  async loadComplete() {
+    const filepath = path.join(this.outputDir, 'complete-data.json');
+    try {
+      const data = await fs.readFile(filepath, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return null; // File doesn't exist
+      }
+      throw error;
+    }
+  }
+
   async loadCache() {
     const cachePath = path.join(this.outputDir, '.cache-services-by-region.json');
     try {

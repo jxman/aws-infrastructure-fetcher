@@ -104,6 +104,23 @@ class S3Storage extends StorageInterface {
     return `s3://${this.bucketName}/${key}`;
   }
 
+  async loadComplete() {
+    try {
+      const key = `${this.prefix}/complete-data.json`;
+      const response = await this.s3Client.send(new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key
+      }));
+      const body = await response.Body.transformToString();
+      return JSON.parse(body);
+    } catch (error) {
+      if (error.name === 'NoSuchKey') {
+        return null; // File doesn't exist
+      }
+      throw error;
+    }
+  }
+
   /**
    * Distribute data files to CloudFront-backed website bucket
    * Follows the same pattern as aws-service-report-generator

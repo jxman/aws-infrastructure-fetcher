@@ -16,6 +16,10 @@ class StorageInterface {
     throw new Error('saveComplete() not implemented');
   }
 
+  async loadComplete() {
+    throw new Error('loadComplete() not implemented');
+  }
+
   async loadCache() {
     throw new Error('loadCache() not implemented');
   }
